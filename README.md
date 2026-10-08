@@ -16,6 +16,7 @@ npm run dev
 - **Alertas**: reconocer, ordenar pausa, resolver (salud térmica, seguridad y dispositivos).
 - **Acelerómetro (simulado)**: actividad (% y g RMS), pasos y recorrido estimado (últimos 30 min), detección de caídas y de falta de movimiento prolongada (umbral configurable).
 - **Dispositivos**: batería, señal, firmware, inventario.
+- **Producto**: prototipo digital con el modelo 3D real del clip (STL en `public/models/`): vista explosionada, interior, accesorios (clip de chaleco / placa de casco), LED y vibración simulados, puntos de interés y ficha técnica. Usa three.js y se carga solo al abrir esa vista.
 - **Umbrales**: sliders para atención / riesgo alto (guardados en localStorage; roles prevencionista y admin).
 
 ## Datos simulados

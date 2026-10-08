@@ -17,6 +17,7 @@ export default function Navbar() {
     { to: '/map', label: 'Mapa' },
     { to: '/alerts', label: 'Alertas', badge: active },
     { to: '/devices', label: 'Dispositivos' },
+    { to: '/producto', label: 'Producto' },
     ...(user.role !== 'supervisor' ? [{ to: '/settings', label: 'Umbrales' }] : []),
   ];
   const isActive = (to) => (to === '/' ? pathname === '/' : pathname.startsWith(to));
@@ -33,7 +34,7 @@ export default function Navbar() {
             </div>
           </Link>
 
-          <div className="hidden lg:flex items-center gap-1">
+          <div className="hidden xl:flex items-center gap-1">
             {links.map((l) => (
               <Link key={l.to} to={l.to} className={isActive(l.to) ? 'nav-link-active' : 'nav-link'}>
                 {l.label}
@@ -43,7 +44,7 @@ export default function Navbar() {
           </div>
 
           <div className="flex items-center gap-2">
-            <Link to="/alerts" className="relative p-2 text-navy-100 hover:text-white lg:hidden">
+            <Link to="/alerts" className="relative p-2 text-navy-100 hover:text-white xl:hidden">
               <Bell className="w-5 h-5" />
               {active > 0 && <span className="absolute top-0.5 right-0.5 bg-red-500 text-white text-[10px] font-bold rounded-full px-1">{active}</span>}
             </Link>
@@ -55,14 +56,14 @@ export default function Navbar() {
             <button onClick={logout} title="Cerrar sesión" className="hidden sm:flex p-2 rounded-lg text-navy-200 hover:bg-white/10 hover:text-white cursor-pointer">
               <LogOut className="w-4 h-4" />
             </button>
-            <button onClick={() => setOpen(!open)} className="lg:hidden p-2 rounded-lg text-navy-100 hover:bg-white/10 cursor-pointer">
+            <button onClick={() => setOpen(!open)} className="xl:hidden p-2 rounded-lg text-navy-100 hover:bg-white/10 cursor-pointer">
               {open ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
           </div>
         </div>
       </div>
       {open && (
-        <div className="lg:hidden border-t border-white/10">
+        <div className="xl:hidden border-t border-white/10">
           {links.map((l) => (
             <Link key={l.to} to={l.to} onClick={() => setOpen(false)} className={isActive(l.to) ? 'nav-link-mobile-active' : 'nav-link-mobile'}>
               {l.label}{l.badge > 0 && ` (${l.badge})`}

@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppProvider, useApp } from './context/AppContext';
 import Navbar from './components/Navbar';
@@ -10,6 +11,8 @@ import MapView from './pages/MapView';
 import Alerts from './pages/Alerts';
 import Devices from './pages/Devices';
 import Settings from './pages/Settings';
+// El visor 3D (three.js) se carga solo al abrir la vista Producto
+const Product = lazy(() => import('./pages/Product'));
 
 function AppShell() {
   const { user } = useApp();
@@ -24,6 +27,7 @@ function AppShell() {
         <Route path="/map" element={<MapView />} />
         <Route path="/alerts" element={<Alerts />} />
         <Route path="/devices" element={<Devices />} />
+        <Route path="/producto" element={<Suspense fallback={<div className="page-layout text-sm text-slate-500">Cargando…</div>}><Product /></Suspense>} />
         <Route path="/settings" element={user.role === 'supervisor' ? <Navigate to="/" replace /> : <Settings />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
