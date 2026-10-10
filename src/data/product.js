@@ -30,6 +30,9 @@ export const HOTSPOTS = [
   { id: 'motor', n: 9, group: 'front', pos: [26, 6.5, 5], normal: null, interior: true,
     title: 'Motor de vibración',
     desc: 'Motor plano de 3 V (con transistor 2N2222). Avisa al trabajador cuando pasa a riesgo alto.' },
+  { id: 'boton', n: 11, group: 'front', pos: [9, 21.6, 2.5], normal: [0, 1, 0],
+    title: 'Botón de hidratación',
+    desc: 'Pulsador en la pared superior con tapa de goma azul. Cuando el clip recuerda beber agua (vibración corta y LED celeste), el trabajador lo mantiene presionado ~1 s para registrar que tomó agua: el LED parpadea en verde dos veces y el panel guarda la hora. Es un registro autodeclarado; no reinicia el riesgo térmico ni las alertas.' },
   { id: 'bateria', n: 10, group: 'battery', pos: [5, 0, -3.6], normal: null, interior: true,
     title: 'Batería',
     desc: 'LiPo 523450, 3,7 V y 1000 mAh, con circuito de protección (PCM) y conector PH2.0.' },
@@ -44,7 +47,7 @@ export const LED_STATES = {
 export const SPECS = [
   { title: 'Medidas', rows: [['Carcasa', '80 × 40 × 17 mm'], ['Con clip de chaleco', '≈ 28 mm de espesor'], ['Material', 'ASA o PETG, color claro']] },
   { title: 'Sensado', rows: [['Temperatura y humedad', 'HTU21D · ±0,3 °C'], ['Movimiento', 'MPU6050 (acelerómetro)'], ['Exposición', 'Tiempo acumulado sobre umbral']] },
-  { title: 'Alertas', rows: [['Estado', 'LED RGB: verde / azul / rojo'], ['Batería', 'LED rojo'], ['Aviso físico', 'Vibración']] },
+  { title: 'Alertas y entradas', rows: [['Estado', 'LED RGB: verde / azul / rojo'], ['Batería', 'LED rojo'], ['Aviso físico', 'Vibración'], ['Botón', 'Hidratación · pulsación larga ~1 s']] },
   { title: 'Conectividad y energía', rows: [['Radio', 'Bluetooth LE 5'], ['Batería', 'LiPo 3,7 V · 1000 mAh'], ['Carga', 'USB-C (~100 mA)']] },
 ];
 
@@ -55,8 +58,15 @@ export const COMPONENTS = [
   ['Motor plano 3 V + 2N2222', 'Alerta por vibración', 'D7'],
   ['LED RGB de estado', 'Verde / azul / rojo', 'D2, D3, D6'],
   ['LED RGB de batería', 'Batería baja (canal rojo)', 'D10'],
+  ['Pulsador táctil 6×6 + tapa', 'Registrar hidratación (autodeclarado)', 'D0 → GND (pull-up interno)'],
   ['LiPo 523450 con PCM', 'Energía, con interruptor', 'D1 (divisor)'],
 ];
+
+// Señales del clip hacia el trabajador (simulación en la vista Producto)
+export const SIGNALS = {
+  recordatorio: { label: 'Recordatorio de hidratación', color: '#22d3ee', text: 'LED celeste que late despacio y vibración corta: es hora de tomar agua.' },
+  registro: { label: 'Hidratación registrada', color: '#22c55e', text: 'Tras la pulsación larga: el LED parpadea dos veces en verde y vibra una vez.' },
+};
 
 export const MOUNTS = {
   none: { label: 'Sin accesorio', text: 'Solo la carcasa de dos piezas (tapa frontal y base trasera).' },

@@ -36,6 +36,11 @@ export default function Settings() {
           <input type="range" min="3" max="20" value={thresholds.stillMinutes} onChange={(e) => set({ stillMinutes: +e.target.value })} className="w-full accent-orange-500" />
           <p className="text-xs text-slate-500 mt-1">Minutos sin movimiento (acelerómetro) en zona de trabajo antes de alertar. Las caídas alertan de inmediato.</p>
         </div>
+        <div>
+          <div className="flex justify-between text-sm"><label className="font-semibold text-ink">Recordatorio de hidratación</label><b className="text-cyan-700">cada {thresholds.hydrationMinutes} min</b></div>
+          <input type="range" min="15" max="60" step="5" value={thresholds.hydrationMinutes} onChange={(e) => set({ hydrationMinutes: +e.target.value })} className="w-full accent-cyan-600" />
+          <p className="text-xs text-slate-500 mt-1">Tiempo máximo entre registros del botón del clip antes de que vibre y avise al trabajador. Si pasan 15 min más sin registro, se abre una alerta de hidratación. Valor de demostración: ajústalo al protocolo de la obra (TGBH, DS 594).</p>
+        </div>
         <label className="flex items-start gap-3 cursor-pointer">
           <input type="checkbox" className="mt-1 accent-orange-500" checked={thresholds.autoPause} onChange={(e) => set({ autoPause: e.target.checked })} />
           <span className="text-sm"><b className="text-ink">Pausa automática recomendada</b><br /><span className="text-slate-500">En la simulación, los trabajadores en riesgo alto tienden a tomar una pausa aunque nadie la ordene.</span></span>
@@ -48,7 +53,7 @@ export default function Settings() {
 
       <div className="card p-5 text-sm text-slate-600 space-y-2">
         <h2 className="section-heading">¿Cómo se calcula el riesgo?</h2>
-        <p>El puntaje (0–100) combina la <b>temperatura ambiente</b> (ajustada por humedad) 50%, la <b>exposición acumulada</b> 30% y la <b>actividad</b> 20% (acelerómetro). Además, el acelerómetro detecta caídas y falta de movimiento prolongada. Es un modelo de demostración: reemplázalo por el algoritmo real del clip en <code>src/lib/risk.js</code>.</p>
+        <p>El puntaje (0–100) combina la <b>temperatura ambiente</b> (ajustada por humedad) 50%, la <b>exposición acumulada</b> 30% y la <b>actividad</b> 20% (acelerómetro). Además, el acelerómetro detecta caídas y falta de movimiento prolongada. El botón de hidratación y las pausas no modifican el puntaje: el clip mide el ambiente, no al trabajador. Es un modelo de demostración: reemplázalo por el algoritmo real del clip en <code>src/lib/risk.js</code>.</p>
       </div>
     </div>
   );

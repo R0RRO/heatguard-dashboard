@@ -11,6 +11,7 @@ const LAYOUT = {
   motor: [0, 6, -14],
   mpu: [-8, -6, -18],    // acelerómetro
   htu: [-12, 0, -22],    // sensor T/HR: sale hacia la rejilla (−x)
+  btn: [14, 8, -10],     // pulsador de hidratación: se separa de la pared superior
   xiao: [10, -8, -26],   // placa principal: la capa más profunda antes de la batería
 };
 
@@ -25,5 +26,5 @@ export function partOffset(key, e, out = new THREE.Vector3()) {
 // Qué pieza arrastra a cada punto de interés
 export const HOTSPOT_PART = {
   sensor: 'htu', 'led-estado': 'led1', 'led-bateria': 'led2', usb: 'xiao', switch: 'sw',
-  antena: 'ant', acel: 'mpu', xiao: 'xiao', motor: 'motor',
+  antena: 'ant', acel: 'mpu', xiao: 'xiao', motor: 'motor', boton: 'btn',
 };

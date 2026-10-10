@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { createState, step, orderPause, hydrate, ackAlert, resolveAlert, attendWorker } from '../lib/simulation';
+import { createState, step, orderPause, hydrate, registerDrink, ackAlert, resolveAlert, attendWorker } from '../lib/simulation';
 import { DEFAULT_THRESHOLDS, displayStatus } from '../lib/risk';
 
 const AppContext = createContext(null);
@@ -79,7 +79,12 @@ export function AppProvider({ children }) {
     hydrate: (id) => {
       apply((s) => hydrate(s, id));
       const w = simRef.current.workers.find((x) => x.id === id);
-      pushToasts([{ level: 'ok', text: `Recordatorio de hidratación enviado a ${w?.name}` }]);
+      pushToasts([{ level: 'ok', text: `Recordatorio de hidratación enviado al clip de ${w?.name}` }]);
+    },
+    registerDrink: (id) => {
+      apply((s) => registerDrink(s, id));
+      const w = simRef.current.workers.find((x) => x.id === id);
+      pushToasts([{ level: 'ok', text: `${w?.name} registró hidratación (botón del clip)` }]);
     },
     attend: (id) => {
       apply((s) => attendWorker(s, id));
@@ -100,7 +105,7 @@ export function AppProvider({ children }) {
   const value = {
     user, login, logout,
     theme, toggleTheme: () => setTheme((t) => (t === 'dark' ? 'light' : 'dark')),
-    sim, workers: sim.workers, alerts: sim.alerts, clock: sim.clock, siteHistory: sim.siteHistory,
+    sim, workers: sim.workers, alerts: sim.alerts, clock: sim.clock, siteHistory: sim.siteHistory, events: sim.events,
     thresholds, setThresholds,
     heatOffset, setHeatOffset, running, setRunning, speed, setSpeed,
     toasts, dismissToast: (id) => setToasts((p) => p.filter((t) => t.id !== id)),

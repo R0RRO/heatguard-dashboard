@@ -17,6 +17,7 @@ export const NETS = {
   led2_r: { label: 'D10 · LED batería R (220 Ω)', color: '#fb923c' },
   motor: { label: 'D7 · motor (1 kΩ + 2N2222)', color: '#14b8a6' },
   coax: { label: 'Coaxial antena → u.FL', color: '#6b7280' },
+  btn: { label: 'D0 · botón de hidratación (a GND)', color: '#0ea5e9' },
   sense: { label: 'D1 · medición de batería (2 × 220 kΩ)', color: '#d97706' },
 };
 
@@ -33,6 +34,7 @@ export const FOOTPRINT = {
   sw: { c: [25.3, 17.3], hw: 4.3, hh: 3.6, z0: 0, z1: 3.9 },
   led1: { c: [5, -9], hw: 3, hh: 3, z0: -0.3, z1: 11 },
   led2: { c: [12.5, -9], hw: 3, hh: 3, z0: -0.3, z1: 11 },
+  btn: { c: [9, 14.7], hw: 3.4, hh: 3.7, z0: -0.5, z1: 5.5 },
 }; // desplazamiento z de la batería respecto del frente por unidad de explosión
 
 // Cable: tramos rectos con las esquinas redondeadas (sin las ondulaciones de una spline entre puntos muy desiguales)
@@ -82,14 +84,14 @@ function resistor(curve, t, label) {
   return g;
 }
 
-export function buildWiring({ front, xiao, mpu, htu, motor, sw }) {
+export function buildWiring({ front, xiao, mpu, htu, motor, sw, btn }) {
   front.updateMatrixWorld(true);
   const W = (obj, x, y, z) => obj.localToWorld(V(x, y, z));
 
   // Pads de la XIAO (7 por lado). Fila +y: D0…D6 (D0 junto al USB); fila −y: 5V, GND, 3V3, D10, D9, D8, D7.
   const xpad = (i, side, z = 0) => W(xiao, (i - 3) * 2.54 - 1.1, side * 8.45, z);
   const X = {
-    D1: xpad(5, 1), D2: xpad(4, 1), D3: xpad(3, 1), D4: xpad(2, 1), D5: xpad(1, 1), D6: xpad(0, 1),
+    D0: xpad(6, 1), D1: xpad(5, 1), D2: xpad(4, 1), D3: xpad(3, 1), D4: xpad(2, 1), D5: xpad(1, 1), D6: xpad(0, 1),
     GND: xpad(5, -1), V33: xpad(4, -1), D10: xpad(3, -1), D7: xpad(0, -1),
     BATP: W(xiao, 2.0, 4.5, -1.0), BATM: W(xiao, 5.0, 4.5, -1.0),
   };
@@ -106,6 +108,8 @@ export function buildWiring({ front, xiao, mpu, htu, motor, sw }) {
   // LEDs de 5 mm (patas: R, común, G, B)
   const L1 = { R: V(3.1, -9, 0.2), C: V(4.37, -9, 0.2), G: V(5.63, -9, 0.2), B: V(6.9, -9, 0.2) };
   const L2 = { R: V(10.6, -9, 0.2), C: V(11.87, -9, 0.2) };
+  // Pulsador de hidratación: patas (paso 6,5 × 4,5 mm) hacia el interior
+  const BT = { R: W(btn, 3.25, -2.25, -3.0), L: W(btn, -3.25, -2.25, -3.0) };
   // Conector JST de la batería (espacio de la batería, ya con su posición en el grupo)
   const J = { P: V(32.6, 11.9, -3.4), N: V(34.6, 11.9, -3.4) };
 
@@ -131,6 +135,7 @@ export function buildWiring({ front, xiao, mpu, htu, motor, sw }) {
     const Sp = { in: at('sw', S.in), out: at('sw', S.out) };
     const L1p = {}; Object.entries(L1).forEach(([k, v]) => { L1p[k] = at('led1', v); });
     const L2p = {}; Object.entries(L2).forEach(([k, v]) => { L2p[k] = at('led2', v); });
+    const BTp = { R: at('btn', BT.R), L: at('btn', BT.L) };
     const Jp = { P: J.P.clone().add(V(0, 0, EXPLODE_BATTERY_REL * e)), N: J.N.clone().add(V(0, 0, EXPLODE_BATTERY_REL * e)) };
     const LEDS = [at('led1', V(5, -9, 0)), at('led2', V(12.5, -9, 0))];
     const R_AVOID = 3.9;
@@ -163,10 +168,13 @@ export function buildWiring({ front, xiao, mpu, htu, motor, sw }) {
     const routeXY = (s2, t2, zf, excl) => {
       const inside = (p, o) => Math.abs(p.x - o.cx) < o.hw && Math.abs(p.y - o.cy) < o.hh;
       // Si un extremo cae en el margen de una pieza, para esa pieza se usa un margen mínimo; si cae dentro de ella, no cuenta
+      const zS = zf(s2), zT = zf(t2);
+      const zHit = (o, z) => z + 0.45 > o.z0 && z - 0.45 < o.z1;
       const obs = obstacles.filter((o) => !excl.includes(o.key)).map((o) => {
         if (!inside(s2, o) && !inside(t2, o)) return o;
         const sm = { ...o, hw: o.hw - MARGIN + 0.45, hh: o.hh - MARGIN + 0.45 };
-        return inside(s2, sm) || inside(t2, sm) ? null : sm;
+        // solo se descarta si el extremo está dentro de la pieza Y a su misma altura (nace/termina en ella)
+        return (inside(s2, sm) && zHit(o, zS)) || (inside(t2, sm) && zHit(o, zT)) ? null : sm;
       }).filter(Boolean);
       const blocked = (p, q) => obs.some((o) => {
         const c = clip(p, q, o);
@@ -263,6 +271,13 @@ export function buildWiring({ front, xiao, mpu, htu, motor, sw }) {
     add('led_g', Xp.D3, L1p.G, { res: '100 Ω', resT: 0.3, led: LEDS[0], ka: 'xiao', kb: 'led1' });
     add('led_b', Xp.D6, L1p.B, { res: '100 Ω', resT: 0.3, led: LEDS[0], ka: 'xiao', kb: 'led1' });
     add('led2_r', Xp.D10, L2p.R, { res: '220 Ω', resT: 0.3, led: LEDS[1], ka: 'xiao', kb: 'led2' });
+    // Botón de hidratación: D0 (pull-up interno) a la pata derecha y GND (del acelerómetro) a la izquierda.
+    // Entran a las patas por su costado (-y), por debajo de la antena.
+    {
+      const exit = V(Xp.D0.x, Xp.D0.y + 1.6, Xp.D0.z + 0.5);
+      wire('btn', Xp.D0, V(BTp.R.x, BTp.R.y - 2.5, BTp.R.z), [BTp.R.clone()], { ka: 'xiao', kb: 'btn', pre: [exit], za: Xp.D0.z + 0.6, zb: BTp.R.z });
+      wire('gnd', Mp.GND, V(BTp.L.x, BTp.L.y - 2.5, BTp.L.z), [BTp.L.clone()], { ka: 'mpu', kb: 'btn', za: Mp.GND.z - 0.6, zb: BTp.L.z });
+    }
     // Motor (D7 → 1 kΩ → base del 2N2222; colector → cable negro del motor)
     add('motor', Xp.D7, MOp.N, { res: '1 kΩ', resT: 0.5, ka: 'xiao', kb: 'motor' });
     // Divisor de batería: BAT+ → 220 kΩ → D1 → 220 kΩ → GND

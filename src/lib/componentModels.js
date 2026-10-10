@@ -444,3 +444,59 @@ export function buildAntenna() {
   g.add(fpc);
   return g;
 }
+
+// ─── Pulsador de hidratación: tact 6 × 6 × 4,3 mm + vástago + tapa de goma ──
+// Convención local: +z apunta hacia el exterior (la pared de la carcasa); el origen es la cara inferior del
+// cuerpo del pulsador. Las patas salen hacia -z. userData.press = grupo que se hunde al presionar.
+export function buildButton() {
+  const g = new THREE.Group();
+  // Cuerpo del pulsador
+  on(g, 6, 6, 3.4, BLACK(), 0, 0, 0, 0.35);
+  on(g, 5.5, 5.5, 0.2, METAL('#b9bec6'), 0, 0, 3.4, 0.2);
+  const act = new THREE.Mesh(new THREE.CylinderGeometry(1.75, 1.75, 0.7, 28), std('#26282d', { roughness: 0.35 }));
+  act.rotation.x = Math.PI / 2;
+  act.position.z = 3.95;
+  g.add(act);
+  // Patas (4, paso 6,5 × 4,5 mm)
+  [-3.25, 3.25].forEach((x) => [-2.25, 2.25].forEach((y) => {
+    const leg = rbox(0.55, 0.7, 3.0, 0.05, METAL('#d9a935'));
+    leg.position.set(x, y, -1.5);
+    g.add(leg);
+    const top = rbox(0.55, 0.7, 0.35, 0.05, METAL('#d9a935'));
+    top.position.set(x > 0 ? 3.0 : -3.0, y, 0.3);
+    g.add(top);
+  }));
+
+  // Vástago + tapa (se hunden juntos)
+  const press = new THREE.Group();
+  const rod = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.6, 2.4, 24), std('#e8eaee', { roughness: 0.5 }));
+  rod.rotation.x = Math.PI / 2;
+  rod.position.z = 4.3 + 1.2;
+  press.add(rod);
+  const cap = rbox(10, 7, 1.5, 1.1, std('#0ea5e9', { roughness: 0.55 }));
+  cap.position.z = 6.0 + 0.75;
+  press.add(cap);
+  // Pictograma de gota
+  const c = document.createElement('canvas');
+  c.width = c.height = 256;
+  const k = c.getContext('2d');
+  k.clearRect(0, 0, 256, 256);
+  k.fillStyle = '#ffffff';
+  k.beginPath();
+  k.moveTo(128, 30);
+  k.bezierCurveTo(128, 30, 52, 118, 52, 160);
+  k.arc(128, 160, 76, Math.PI, 0, true);
+  k.bezierCurveTo(204, 118, 128, 30, 128, 30);
+  k.fill();
+  k.fillStyle = '#0ea5e9';
+  k.beginPath(); k.ellipse(104, 168, 14, 22, 0.5, 0, Math.PI * 2); k.fill();
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 4;
+  const icon = new THREE.Mesh(new THREE.PlaneGeometry(5, 5), new THREE.MeshStandardMaterial({ map: tex, transparent: true, roughness: 0.5, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
+  icon.position.z = 7.5 + 0.02;
+  press.add(icon);
+  g.add(press);
+  g.userData.press = press;
+  return g;
+}

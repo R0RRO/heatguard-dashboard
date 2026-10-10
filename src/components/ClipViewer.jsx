@@ -4,10 +4,10 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { toCreasedNormals } from 'three/addons/utils/BufferGeometryUtils.js';
-import { HOTSPOTS, LED_STATES } from '../data/product';
+import { HOTSPOTS, LED_STATES, SIGNALS } from '../data/product';
 import { buildWiring } from '../lib/wiring';
 import { partOffset, HOTSPOT_PART } from '../lib/explodeLayout';
-import { buildXiao, buildMpu, buildHtu, buildBattery, buildMotor, buildSwitch, buildAntenna } from '../lib/componentModels';
+import { buildXiao, buildMpu, buildHtu, buildBattery, buildMotor, buildSwitch, buildAntenna, buildButton } from '../lib/componentModels';
 
 const SHELL = '#d3d9e2';
 const ACCESSORY = '#4b5668';
@@ -61,25 +61,30 @@ function buildComponents() {
   const sw = buildSwitch();
   sw.position.set(25.3, 16.1, 0);
 
+  // Pulsador de hidratación en la pared superior (+y): vástago y tapa asoman hacia afuera
+  const btn = buildButton();
+  btn.rotation.x = -Math.PI / 2;      // +z local → +y (hacia la pared)
+  btn.position.set(9, 14.0, 2.5);
+
   // Cada pieza va en su propio grupo para poder separarla al explosionar
   const parts = {};
-  Object.entries({ xiao, mpu, htu, ant: antenna, motor, sw }).forEach(([k, o]) => {
+  Object.entries({ xiao, mpu, htu, ant: antenna, motor, sw, btn }).forEach(([k, o]) => {
     const w = new THREE.Group();
     w.add(o);
     front.add(w);
     parts[k] = w;
   });
-  const wiring = buildWiring({ front, xiao, mpu, htu, motor, sw });
+  const wiring = buildWiring({ front, xiao, mpu, htu, motor, sw, btn });
   front.add(wiring.group);
 
   const bat = buildBattery();
   bat.position.set(5.2, 0, -3.6);
   battery.add(bat);
-  return { front, battery, wiring, parts };
+  return { front, battery, wiring, parts, buttonPress: btn.userData.press };
 }
 
 export default function ClipViewer({
-  ledState = 'normal', batteryLow = false, vibrate = false, explode = 0, interior = false, wires = false,
+  ledState = 'normal', batteryLow = false, vibrate = false, explode = 0, interior = false, wires = false, reminder = false, pressKey = 0,
   accessory = 'none', autoRotate = true, showLabels = true, selected = null, onSelect, resetKey = 0,
 }) {
   const mountRef = useRef(null);
@@ -90,7 +95,7 @@ export default function ClipViewer({
   const [status, setStatus] = useState('loading');
 
   useEffect(() => {
-    propsRef.current = { ledState, batteryLow, vibrate, explode, interior, wires, accessory, autoRotate, showLabels, selected };
+    propsRef.current = { ledState, batteryLow, vibrate, explode, interior, wires, reminder, pressKey, accessory, autoRotate, showLabels, selected };
   });
 
   useEffect(() => {
@@ -139,7 +144,7 @@ export default function ClipViewer({
     groups.base.add(groups.battery);
     root.add(groups.front, groups.base, groups.acc);
 
-    const { front: compFront, battery: compBattery, wiring, parts } = buildComponents();
+    const { front: compFront, battery: compBattery, wiring, parts, buttonPress } = buildComponents();
     parts.led1 = new THREE.Group();
     parts.led2 = new THREE.Group();
     groups.front.add(parts.led1, parts.led2);
@@ -227,7 +232,7 @@ export default function ClipViewer({
     const ro = new ResizeObserver(resize);
     ro.observe(mount);
 
-    const state = { explode: 0, shellOpacity: 1, transparentOn: false };
+    const state = { pressKey: propsRef.current.pressKey, ackT0: -99, explode: 0, shellOpacity: 1, transparentOn: false };
     const v = new THREE.Vector3();
     const n = new THREE.Vector3();
     const toCam = new THREE.Vector3();
@@ -273,9 +278,19 @@ export default function ClipViewer({
       wiring.group.visible = !!p.wires;
       if (p.wires) wiring.update(e);
 
-      // LEDs
-      const cfg = LED_STATES[p.ledState] || LED_STATES.normal;
-      const blink = p.ledState === 'alerta' ? (Math.sin(t * 9) > 0 ? 1 : 0.25) : 1;
+      // Botón de hidratación: al presionar, la tapa se hunde y el clip confirma (LED verde ×2 + vibración corta)
+      if (p.pressKey !== state.pressKey) { state.pressKey = p.pressKey; state.ackT0 = t; }
+      const dtAck = t - state.ackT0;
+      const acking = dtAck >= 0 && dtAck < 1.5;
+      const pressDepth = dtAck >= 0 && dtAck < 0.5 ? Math.sin((dtAck / 0.5) * Math.PI) : 0;
+      buttonPress.position.z = -0.85 * pressDepth;
+      const ackOn = acking && dtAck > 0.45 && (dtAck % 0.5) < 0.28;
+
+      // LEDs (prioridad: confirmación > recordatorio > estado)
+      let cfg = LED_STATES[p.ledState] || LED_STATES.normal;
+      let blink = p.ledState === 'alerta' ? (Math.sin(t * 9) > 0 ? 1 : 0.25) : 1;
+      if (acking) { cfg = { color: SIGNALS.registro.color }; blink = ackOn ? 1 : 0.1; }
+      else if (p.reminder) { cfg = { color: SIGNALS.recordatorio.color }; blink = 0.55 + 0.45 * Math.sin(t * 3.2); }
       ledMat.emissive.set(cfg.color);
       ledMat.emissiveIntensity = 2.2 * blink;
       ledMat.color.set(cfg.color);
@@ -290,7 +305,9 @@ export default function ClipViewer({
       glow2.material.opacity = low ? 0.8 : 0;
 
       // Vibración
-      if (p.vibrate) root.position.set(Math.sin(t * 95) * 0.45, Math.cos(t * 80) * 0.35, 0);
+      const remBuzz = p.reminder && !acking && (t % 1.6) < 0.35;
+      const ackBuzz = acking && dtAck > 0.45 && dtAck < 0.8;
+      if (p.vibrate || remBuzz || ackBuzz) root.position.set(Math.sin(t * 95) * 0.45, Math.cos(t * 80) * 0.35, 0);
       else root.position.set(0, 0, 0);
 
       // Puntos de interés proyectados sobre el canvas

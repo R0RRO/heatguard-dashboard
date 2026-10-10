@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Users, ShieldAlert, Activity, Thermometer, Timer, Siren, Pause, Droplets, ArrowRight, Wifi } from 'lucide-react';
+import { Users, ShieldAlert, Activity, Thermometer, Timer, Siren, Pause, Droplets, ArrowRight, Wifi, MousePointerClick, BellRing } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import KpiCard from '../components/KpiCard';
 import SimControls from '../components/SimControls';
@@ -9,9 +9,10 @@ import { LineChart, StackedArea, Donut, RiskBar } from '../components/Charts';
 import { ZONES, SITE } from '../data/seed';
 import { STATUS, STATUS_RANK } from '../lib/risk';
 import { fmtClock, fmtDuration } from '../lib/format';
+import { hydrationState, sinceDrink } from '../lib/hydration';
 
 export default function Dashboard() {
-  const { workers, alerts, siteHistory, clock, thresholds, orderPause, hydrate, workerStatus } = useApp();
+  const { workers, alerts, siteHistory, clock, thresholds, orderPause, hydrate, events, workerStatus } = useApp();
 
   const count = { normal: 0, atencion: 0, alerta: 0 };
   workers.forEach((w) => count[w.status]++);
@@ -20,6 +21,11 @@ export default function Dashboard() {
   const incidents = workers.filter((w) => w.incident);
   const last = siteHistory[siteHistory.length - 1];
   const avgExposure = workers.reduce((a, w) => a + w.exposure, 0) / workers.length;
+
+  const hyd = workers.map((w) => ({ w, st: hydrationState(w, clock, thresholds), since: sinceDrink(w, clock) }));
+  const hydOk = hyd.filter((h) => h.st === 'ok').length;
+  const hydPending = hyd.filter((h) => h.st !== 'ok').sort((a, b) => b.since - a.since);
+  const hydEvents = events.filter((e) => e.type === 'hidratacion').slice(0, 6);
 
   const top = [...workers].filter((w) => w.status !== 'normal' && !w.resting).sort((a, b) => b.score - a.score).slice(0, 6);
   const openAlerts = alerts.filter((a) => a.status !== 'resuelta').slice(0, 5);
@@ -34,12 +40,13 @@ export default function Dashboard() {
         <SimControls />
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3">
         <KpiCard icon={Users} label="Trabajadores en obra" value={workers.length} hint={`${online} clips en línea · ${resting} en pausa`} />
         <KpiCard icon={ShieldAlert} label="Riesgo alto" value={count.alerta} tone="red" hint={`umbral ≥ ${thresholds.alert}`} />
         <KpiCard icon={Activity} label="En atención" value={count.atencion} tone="blue" hint={`umbral ≥ ${thresholds.attention}`} />
         <KpiCard icon={Thermometer} label="Temp. ambiente" value={last.temp.toFixed(1)} unit="°C" tone="heat" hint={`humedad ${Math.round(last.rh)}%`} />
         <KpiCard icon={Timer} label="Exposición promedio" value={fmtDuration(avgExposure)} tone="green" hint="acumulada en el turno" />
+        <KpiCard icon={Droplets} label="Hidratación al día" value={Math.round((hydOk / workers.length) * 100)} unit="%" tone={hydPending.length > workers.length / 3 ? 'heat' : 'blue'} hint={`${hydPending.length} con recordatorio · botón del clip`} />
       </div>
 
       <div className="grid lg:grid-cols-3 gap-6">
@@ -128,6 +135,48 @@ export default function Dashboard() {
           {openAlerts.length === 0
             ? <p className="text-sm text-slate-500 py-6 text-center">Sin alertas abiertas.</p>
             : <div className="space-y-2">{openAlerts.map((a) => <AlertItem key={a.id} alert={a} compact />)}</div>}
+        </div>
+      </div>
+
+      <div className="grid lg:grid-cols-2 gap-6">
+        <div className="card p-4">
+          <div className="flex items-center justify-between mb-1">
+            <h2 className="section-heading">Hidratación pendiente</h2>
+            <span className="text-xs text-slate-500">recordatorio cada {thresholds.hydrationMinutes} min</span>
+          </div>
+          <p className="text-xs text-slate-500 mb-3">Quienes no han presionado el botón del clip desde el intervalo configurado. Es un registro autodeclarado: no indica el estado de hidratación real.</p>
+          {hydPending.length === 0 ? (
+            <p className="text-sm text-slate-500 py-6 text-center">Todos registraron hidratación dentro del intervalo.</p>
+          ) : (
+            <div className="space-y-2">
+              {hydPending.slice(0, 6).map(({ w, st, since }) => (
+                <div key={w.id} className="flex items-center gap-x-3 gap-y-2 flex-wrap p-2.5 rounded-xl border border-line">
+                  <div className="flex-1 min-w-[140px]">
+                    <Link to={`/workers/${w.id}`} className="text-sm font-semibold text-ink no-underline hover:text-heat-600">{w.name}</Link>
+                    <p className="text-xs text-slate-500">último registro hace {since} min · {w.drinkCount} hoy</p>
+                  </div>
+                  <span className={`badge ${st === 'overdue' ? 'bg-amber-50 text-amber-800 border-amber-300' : 'bg-blue-50 text-blue-700 border-blue-200'}`}>{st === 'overdue' ? 'Sin registro' : 'Recordando'}</span>
+                  <button className="btn-secondary btn-sm" title="Enviar recordatorio al clip" disabled={w.reminderSent} onClick={() => hydrate(w.id)}><BellRing className="w-3.5 h-3.5" />{w.reminderSent ? 'Enviado' : 'Recordar'}</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="card p-4">
+          <h2 className="section-heading mb-3"><MousePointerClick className="w-4 h-4 text-ink-2" />Últimos registros del botón</h2>
+          {hydEvents.length === 0 ? (
+            <p className="text-sm text-slate-500 py-6 text-center">Aún no hay registros en este turno.</p>
+          ) : (
+            <ul className="space-y-2">
+              {hydEvents.map((e, i) => (
+                <li key={`${e.workerId}-${e.clock}-${i}`} className="flex items-center gap-3 text-sm">
+                  <span className="bg-cyan-50 text-cyan-700 rounded-lg p-1.5"><Droplets className="w-3.5 h-3.5" /></span>
+                  <Link to={`/workers/${e.workerId}`} className="font-medium text-ink no-underline hover:text-heat-600 flex-1">{e.workerName}</Link>
+                  <span className="text-xs text-slate-500">{fmtClock(e.clock)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </div>
 

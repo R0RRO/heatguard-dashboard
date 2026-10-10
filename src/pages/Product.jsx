@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { RotateCcw, Layers, Eye, Tag, Cable, Vibrate, BatteryLow, ArrowRight, Info } from 'lucide-react';
+import { RotateCcw, Layers, Eye, Tag, Cable, BellRing, MousePointerClick, Vibrate, BatteryLow, ArrowRight, Info } from 'lucide-react';
 import ClipViewer from '../components/ClipViewer';
 import { NETS } from '../lib/wiring';
-import { HOTSPOTS, LED_STATES, SPECS, COMPONENTS, MOUNTS } from '../data/product';
+import { HOTSPOTS, LED_STATES, SIGNALS, SPECS, COMPONENTS, MOUNTS } from '../data/product';
 
 function Toggle({ on, onClick, icon, label }) {
   const IconEl = icon;
@@ -23,6 +23,9 @@ export default function Product() {
   const [accessory, setAccessory] = useState('none');
   const [autoRotate, setAutoRotate] = useState(true);
   const [wires, setWires] = useState(false);
+  const [reminder, setReminder] = useState(false);
+  const [pressKey, setPressKey] = useState(0);
+  const [drinks, setDrinks] = useState(0);
   const [labels, setLabels] = useState(true);
   const [selected, setSelected] = useState(null);
   const [resetKey, setResetKey] = useState(0);
@@ -32,6 +35,12 @@ export default function Product() {
     setSelected(id);
     const h = HOTSPOTS.find((x) => x.id === id);
     if (h?.interior) setInterior(true);
+  };
+  // Botón de hidratación (simulado): registra la toma, apaga el recordatorio y el clip confirma
+  const pressButton = () => {
+    setPressKey((n) => n + 1);
+    setDrinks((n) => n + 1);
+    setReminder(false);
   };
   const setAlert = (k) => {
     setLedState(k);
@@ -45,7 +54,7 @@ export default function Product() {
           <p className="text-xs font-bold tracking-widest text-heat-600 uppercase">Prototipo digital · v2</p>
           <h1 className="text-3xl font-extrabold text-ink">HeatGuard <span className="text-heat-500">Clip</span></h1>
           <p className="text-sm text-slate-500 max-w-2xl mt-1">
-            Dispositivo que se fija al casco o al chaleco y mide la temperatura, la humedad y el movimiento alrededor del trabajador. Avisa con luz y vibración, y envía los datos por Bluetooth a este panel.
+            Dispositivo que se fija al casco o al chaleco y mide la temperatura, la humedad y el movimiento alrededor del trabajador. Avisa con luz y vibración, registra la hidratación con un botón y envía los datos por Bluetooth a este panel.
           </p>
         </div>
         <span className="badge bg-surface-2 text-ink-2 border-line-2">Modelo 3D real · carcasa 80 × 40 × 17 mm</span>
@@ -63,7 +72,7 @@ export default function Product() {
 
           <div className="relative h-[460px] sm:h-[540px] bg-gradient-to-b from-surface-2 to-surface">
             <ClipViewer
-              ledState={ledState} batteryLow={batteryLow} vibrate={vibrate} explode={explode} interior={interior} wires={wires}
+              ledState={ledState} batteryLow={batteryLow} vibrate={vibrate} explode={explode} interior={interior} wires={wires} reminder={reminder} pressKey={pressKey}
               accessory={accessory} autoRotate={autoRotate} showLabels={labels} selected={selected}
               onSelect={select} resetKey={resetKey}
             />
@@ -117,6 +126,19 @@ export default function Product() {
               <Toggle on={vibrate} onClick={() => setVibrate(!vibrate)} icon={Vibrate} label="Vibración" />
               <Toggle on={batteryLow} onClick={() => setBatteryLow(!batteryLow)} icon={BatteryLow} label="Batería baja" />
             </div>
+          </div>
+
+          <div className="card p-4 space-y-3">
+            <h2 className="section-heading"><MousePointerClick className="w-4 h-4 text-ink-2" />Botón de hidratación</h2>
+            <p className="text-sm text-slate-600">Cuando pasa el intervalo configurado sin registro, el clip recuerda con {SIGNALS.recordatorio.text.toLowerCase()} El trabajador toma agua y mantiene presionado el botón ~1 s.</p>
+            <div className="flex gap-2 flex-wrap">
+              <Toggle on={reminder} onClick={() => setReminder(!reminder)} icon={BellRing} label="Activar recordatorio" />
+              <button onClick={pressButton} className="btn-primary btn-sm inline-flex items-center gap-1.5"><MousePointerClick className="w-3.5 h-3.5" />Presionar botón</button>
+            </div>
+            <p className="text-xs text-slate-500" aria-live="polite">
+              {drinks === 0 ? 'El botón está en la pared superior del clip (punto 11).' : `${SIGNALS.registro.text} Registros en esta sesión: ${drinks}.`}
+            </p>
+            <p className="text-xs text-slate-500">Es un registro autodeclarado: no mide hidratación ni reinicia el riesgo térmico ni las alertas.</p>
           </div>
 
           <div className="card p-4 space-y-2">

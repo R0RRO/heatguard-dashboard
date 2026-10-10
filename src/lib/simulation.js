@@ -3,6 +3,7 @@
 // la UI solo consume el objeto de estado que retorna createState/step.
 import { SITE, ZONES, WORKER_SEEDS, SPARE_DEVICES } from '../data/seed';
 import { apparentTemp, riskScore, statusFromScore, mainReason, clamp } from './risk';
+import { sinceDrink, hydrationState, DEFAULT_HYDRATION_MINUTES } from './hydration';
 
 const HISTORY = 90;
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -39,7 +40,12 @@ export function createState(th, heatOffset = 0) {
       incident: null, // { type: 'caida' | 'inmovil', since }
       stillMin: 0,
       accel: 0,
-      hydratedAt: -999,
+      // Botón de hidratación del clip
+      hydratedAt: clock - Math.round(rnd(0, 38)),
+      drinks: [],
+      drinkCount: Math.round(rnd(1, 4)),
+      reminderSent: false,
+      compliance: i % 7 === 2 ? rnd(0.01, 0.025) : rnd(0.06, 0.2), // prob. por minuto de presionar el botón con el recordatorio activo
       env: { t: 30, rh: 45 },
       exposure,
       score: 0,
@@ -117,8 +123,7 @@ function tickWorker(w, clock, th, heatOffset, { silent = false } = {}) {
   if (resting) exposure = Math.max(0, exposure - 1.8);
   else exposure += at > 32 ? 0.8 : at > 28 ? 0.5 : 0.2;
 
-  const hydrated = clock - w.hydratedAt < 30;
-  const { score, factors } = riskScore({ at, exposure, activity, hydrated });
+  const { score, factors } = riskScore({ at, exposure, activity });
   const status = statusFromScore(score, th);
 
   // Pausa espontánea (descansos normales) y retorno al trabajo
@@ -138,6 +143,23 @@ function tickWorker(w, clock, th, heatOffset, { silent = false } = {}) {
     if (w.incident) { target = w.pos; pos = w.pos; }
   }
 
+  // Botón de hidratación: con el recordatorio activo el trabajador tiende a presionarlo
+  let { hydratedAt, drinks, drinkCount, reminderSent } = w;
+  let pressed = false;
+  if (!silent && w.online && !w.incident) {
+    const limit = th.hydrationMinutes ?? DEFAULT_HYDRATION_MINUTES;
+    if (clock - hydratedAt >= limit) {
+      const p = w.compliance * (resting ? 3 : 1) * (reminderSent ? 3 : 1);
+      if (Math.random() < p) {
+        pressed = true;
+        hydratedAt = clock;
+        drinks = [...drinks, clock].slice(-12);
+        drinkCount += 1;
+        reminderSent = false;
+      }
+    }
+  }
+
   // Dispositivo
   let online = w.online;
   let offlineLeft = w.offlineLeft;
@@ -155,6 +177,7 @@ function tickWorker(w, clock, th, heatOffset, { silent = false } = {}) {
   return {
     ...w, pos, target, activity, accel, resting, restLeft, exposure,
     env: { t, rh }, score, factors, status, battery, signal, online, offlineLeft,
+    hydratedAt, drinks, drinkCount, reminderSent, pressed,
     history, worstToday: Math.max(w.worstToday, score),
   };
 }
@@ -181,11 +204,28 @@ export function step(prev, th, heatOffset = 0) {
 
   // Alertas
   let alerts = prev.alerts.map((a) => ({ ...a }));
-  const events = [...prev.events];
+  let events = prev.events;
   let nextAlertId = prev.nextAlertId;
   const newToasts = [];
 
   workers.forEach((w) => {
+    if (w.pressed) events = [{ type: 'hidratacion', clock, workerId: w.id, workerName: w.name }, ...events].slice(0, 40);
+
+    // Alerta de hidratación: pasó el recordatorio sin registro
+    const hyd = alerts.find((a) => a.workerId === w.id && a.kind === 'hidratacion' && a.status !== 'resuelta');
+    const hState = hydrationState(w, clock, th);
+    const since = sinceDrink(w, clock);
+    if (hState === 'overdue' && w.online && !hyd) {
+      alerts.unshift({
+        id: nextAlertId++, kind: 'hidratacion', level: 'atencion', workerId: w.id, workerName: w.name,
+        zoneId: w.zoneId, reason: `Sin registro de hidratación hace ${since} min`, status: 'activa', createdAt: clock, peak: 0,
+      });
+    } else if (hyd && hState === 'overdue') {
+      hyd.reason = `Sin registro de hidratación hace ${since} min`;
+    } else if (hyd && hState !== 'overdue') {
+      hyd.status = 'resuelta'; hyd.resolvedAt = clock; hyd.action = 'Hidratación registrada con el botón';
+    }
+
     const open = alerts.find((a) => a.workerId === w.id && a.kind === 'salud' && a.status !== 'resuelta');
     if (w.status === 'normal') {
       if (open) { open.status = 'resuelta'; open.resolvedAt = clock; }
@@ -262,10 +302,25 @@ export function orderPause(state, workerId, minutes = 15) {
   };
 }
 
+// El supervisor envía un recordatorio al clip: vibra y el trabajador tiende a confirmar con el botón
 export function hydrate(state, workerId) {
   return {
     ...state,
-    workers: state.workers.map((w) => (w.id === workerId ? { ...w, hydratedAt: state.clock } : w)),
+    workers: state.workers.map((w) => (w.id === workerId ? { ...w, reminderSent: true } : w)),
+  };
+}
+
+// Pulsación del botón del clip (en el demo: simulada desde el panel)
+export function registerDrink(state, workerId) {
+  return {
+    ...state,
+    workers: state.workers.map((w) => (w.id === workerId
+      ? { ...w, hydratedAt: state.clock, drinks: [...w.drinks, state.clock].slice(-12), drinkCount: w.drinkCount + 1, reminderSent: false }
+      : w)),
+    events: [{ type: 'hidratacion', clock: state.clock, workerId, workerName: state.workers.find((w) => w.id === workerId)?.name }, ...state.events].slice(0, 40),
+    alerts: state.alerts.map((a) => (a.workerId === workerId && a.kind === 'hidratacion' && a.status !== 'resuelta'
+      ? { ...a, status: 'resuelta', resolvedAt: state.clock, action: 'Hidratación registrada con el botón' }
+      : a)),
   };
 }
 

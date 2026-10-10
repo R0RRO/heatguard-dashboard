@@ -4,7 +4,7 @@ import { useApp } from '../context/AppContext';
 import AlertItem from '../components/AlertItem';
 
 const TABS = [['activa', 'Activas'], ['reconocida', 'Reconocidas'], ['resuelta', 'Resueltas'], ['all', 'Todas']];
-const KINDS = [['all', 'Todo'], ['salud', 'Salud'], ['seguridad', 'Seguridad'], ['dispositivo', 'Dispositivo']];
+const KINDS = [['all', 'Todo'], ['salud', 'Salud'], ['seguridad', 'Seguridad'], ['hidratacion', 'Hidratación'], ['dispositivo', 'Dispositivo']];
 
 export default function Alerts() {
   const { alerts } = useApp();

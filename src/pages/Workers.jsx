@@ -1,18 +1,19 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Pause } from 'lucide-react';
+import { Search, Pause, Droplets } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import StatusBadge from '../components/StatusBadge';
 import { RiskBar, Sparkline, BatteryPill } from '../components/Charts';
 import { ZONES } from '../data/seed';
 import { fmtDuration, distanceKm } from '../lib/format';
+import { hydrationState, sinceDrink, HYDRATION_BADGE, HYDRATION_LABEL } from '../lib/hydration';
 
 const FILTERS = [
-  ['all', 'Todos'], ['alerta', 'Riesgo alto'], ['atencion', 'Atención'], ['normal', 'Normal'], ['pausa', 'En pausa'], ['incidente', 'Sin movimiento'], ['offline', 'Sin señal'],
+  ['all', 'Todos'], ['alerta', 'Riesgo alto'], ['atencion', 'Atención'], ['normal', 'Normal'], ['pausa', 'En pausa'], ['incidente', 'Sin movimiento'], ['hidratacion', 'Hidratación pendiente'], ['offline', 'Sin señal'],
 ];
 
 export default function Workers() {
-  const { workers, workerStatus, orderPause } = useApp();
+  const { workers, workerStatus, orderPause, clock, thresholds } = useApp();
   const navigate = useNavigate();
   const [q, setQ] = useState('');
   const [filter, setFilter] = useState('all');
@@ -24,12 +25,13 @@ export default function Workers() {
       if (q && !`${w.name} ${w.trade} ${w.crew} ${w.deviceId}`.toLowerCase().includes(q.toLowerCase())) return false;
       if (zone !== 'all' && w.zoneId !== zone) return false;
       if (filter === 'incidente') { if (!w.incident) return false; }
+      else if (filter === 'hidratacion') { if (hydrationState(w, clock, thresholds) === 'ok') return false; }
       else if (filter !== 'all' && workerStatus(w) !== filter) return false;
       return true;
     });
     const by = { risk: (a, b) => b.score - a.score, exposure: (a, b) => b.exposure - a.exposure, distance: (a, b) => distanceKm(b.history) - distanceKm(a.history), name: (a, b) => a.name.localeCompare(b.name) };
     return l.sort(by[sort]);
-  }, [workers, q, filter, zone, sort, workerStatus]);
+  }, [workers, q, filter, zone, sort, workerStatus, clock, thresholds]);
 
   return (
     <div className="page-layout">
@@ -68,7 +70,7 @@ export default function Workers() {
           <thead className="border-b border-line bg-surface-2/50">
             <tr>
               <th className="th">Trabajador</th><th className="th">Zona</th><th className="th">T° ambiente</th><th className="th">Humedad</th><th className="th">Actividad</th><th className="th">Recorrido 30 min</th>
-              <th className="th">Exposición</th><th className="th">Riesgo</th><th className="th">Tendencia riesgo</th><th className="th">Estado</th><th className="th">Clip</th><th className="th" />
+              <th className="th">Exposición</th><th className="th">Hidratación</th><th className="th">Riesgo</th><th className="th">Tendencia riesgo</th><th className="th">Estado</th><th className="th">Clip</th><th className="th" />
             </tr>
           </thead>
           <tbody>
@@ -83,6 +85,7 @@ export default function Workers() {
                   <td className="td">{Math.round(w.activity * 100)}%</td>
                   <td className="td">{distanceKm(w.history).toFixed(2)} km</td>
                   <td className="td">{fmtDuration(w.exposure)}</td>
+                  <td className="td">{(() => { const hs = hydrationState(w, clock, thresholds); return (<div className="flex flex-col items-start gap-1"><span className="text-xs text-slate-600">hace {sinceDrink(w, clock)} min</span>{hs !== 'ok' && <span className={`badge ${HYDRATION_BADGE[hs]}`}><Droplets className="w-3 h-3" />{HYDRATION_LABEL[hs]}</span>}</div>); })()}</td>
                   <td className="td"><RiskBar score={w.score} status={w.status} /></td>
                   <td className="td"><Sparkline values={w.history.slice(-30).map((p) => p.score)} color="#f97316" /></td>
                   <td className="td"><div className="flex flex-col items-start gap-1"><StatusBadge status={st} pulse />{w.incident && <span className="badge bg-red-50 text-red-700 border-red-200">{w.incident.type === 'caida' ? 'Posible caída' : `Inmóvil ${w.stillMin} min`}</span>}</div></td>

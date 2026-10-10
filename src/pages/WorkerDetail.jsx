@@ -1,5 +1,5 @@
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, Pause, Droplets, Thermometer, Gauge, Timer, Activity, Radio, HardHat, Siren, Footprints } from 'lucide-react';
+import { ArrowLeft, Pause, Droplets, Thermometer, Gauge, Timer, Activity, Radio, HardHat, Siren, Footprints, BellRing, MousePointerClick } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import StatusBadge from '../components/StatusBadge';
 import KpiCard from '../components/KpiCard';
@@ -9,10 +9,11 @@ import SiteMap from '../components/SiteMap';
 import { LineChart, BatteryPill } from '../components/Charts';
 import { ZONES } from '../data/seed';
 import { fmtDuration, fmtClock, distanceKm, recentSteps } from '../lib/format';
+import { hydrationState, sinceDrink, HYDRATION_BADGE, HYDRATION_LABEL } from '../lib/hydration';
 
 export default function WorkerDetail() {
   const { workerId } = useParams();
-  const { workers, alerts, clock, thresholds, orderPause, hydrate, attend, workerStatus } = useApp();
+  const { workers, alerts, clock, thresholds, orderPause, hydrate, registerDrink, attend, workerStatus } = useApp();
   const w = workers.find((x) => x.id === workerId);
 
   if (!w) {
@@ -21,7 +22,7 @@ export default function WorkerDetail() {
   const st = workerStatus(w);
   const zone = ZONES.find((z) => z.id === w.zoneId);
   const mine = alerts.filter((a) => a.workerId === w.id).slice(0, 6);
-  const hydrated = clock - w.hydratedAt < 30;
+  const hs = hydrationState(w, clock, thresholds);
   const led = w.status;
 
   return (
@@ -36,14 +37,15 @@ export default function WorkerDetail() {
             <p className="text-sm text-slate-500">{w.trade} · {w.crew} · {zone.name}</p>
             <div className="mt-1.5 flex items-center gap-2"><StatusBadge status={st} pulse />
               {w.resting && <span className="text-xs text-cyan-700">pausa: {Math.max(0, w.restLeft)} min restantes</span>}
-              {hydrated && <span className="text-xs text-blue-600 flex items-center gap-1"><Droplets className="w-3 h-3" />hidratado</span>}
+              <span className={`badge ${HYDRATION_BADGE[hs]}`}><Droplets className="w-3 h-3" />{HYDRATION_LABEL[hs]}</span>
             </div>
           </div>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
           <ClipLogo active={led} className="w-24" />
           <button className="btn-primary" disabled={w.resting} onClick={() => orderPause(w.id)}><Pause className="w-4 h-4" />Ordenar pausa</button>
-          <button className="btn-secondary" onClick={() => hydrate(w.id)}><Droplets className="w-4 h-4" />Recordar hidratación</button>
+          <button className="btn-secondary" disabled={w.reminderSent} onClick={() => hydrate(w.id)}><BellRing className="w-4 h-4" />{w.reminderSent ? 'Recordatorio enviado' : 'Recordar hidratación'}</button>
+          <button className="btn-secondary" title="Simula que el trabajador presiona el botón del clip" onClick={() => registerDrink(w.id)}><MousePointerClick className="w-4 h-4" />Simular botón del clip</button>
         </div>
       </div>
 
@@ -64,6 +66,7 @@ export default function WorkerDetail() {
         <KpiCard icon={Droplets} label="Humedad ambiente" value={Math.round(w.env.rh)} unit="%" tone="blue" hint="sensor del clip" />
         <KpiCard icon={Timer} label="Exposición acumulada" value={fmtDuration(w.exposure)} tone="navy" />
         <KpiCard icon={Activity} label="Actividad" value={Math.round(w.activity * 100)} unit="%" tone="green" hint={w.incident ? `sin movimiento ${w.stillMin} min` : 'acelerómetro'} />
+        <KpiCard icon={Droplets} label="Última hidratación" value={`hace ${sinceDrink(w, clock)}`} unit="min" tone={hs === 'ok' ? 'blue' : 'heat'} hint={`${w.drinkCount} registros hoy · botón del clip`} />
         <KpiCard icon={Footprints} label="Recorrido (30 min)" value={distanceKm(w.history).toFixed(2)} unit="km" tone="navy" hint={`${recentSteps(w.history).toLocaleString('es-CL')} pasos · estimado`} />
       </div>
 
@@ -92,6 +95,7 @@ export default function WorkerDetail() {
             <dt className="text-slate-500">Señal BLE</dt><dd>{Math.round(w.signal)} dBm</dd>
             <dt className="text-slate-500">Acelerómetro</dt><dd>{w.accel.toFixed(2)} g RMS</dd>
             <dt className="text-slate-500">Conexión</dt><dd>{w.online ? 'En línea' : 'Sin señal'}</dd>
+            <dt className="text-slate-500">Botón (hidratación)</dt><dd>{`último ${fmtClock(w.hydratedAt)}`}</dd>
             <dt className="text-slate-500">Máx. riesgo hoy</dt><dd>{Math.round(w.worstToday)}</dd>
           </dl>
         </div>

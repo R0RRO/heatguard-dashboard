@@ -13,10 +13,10 @@ npm run dev
 - **Panel**: KPIs, evolución del estado de la cuadrilla, clima, quién requiere pausa, alertas abiertas, resumen por zona.
 - **Trabajadores** / **detalle**: T° y humedad ambiente, exposición, actividad, riesgo, gráficos históricos, dispositivo, acciones (pausa / hidratación).
 - **Mapa**: zonas y clips sobre Leaflet con color de semáforo (verde / azul / rojo).
-- **Alertas**: reconocer, ordenar pausa, resolver (salud térmica, seguridad y dispositivos).
-- **Acelerómetro (simulado)**: actividad (% y g RMS), pasos y recorrido estimado (últimos 30 min), detección de caídas y de falta de movimiento prolongada (umbral configurable).
+- **Alertas**: reconocer, ordenar pausa, resolver (salud térmica y dispositivos).
 - **Dispositivos**: batería, señal, firmware, inventario.
 - **Producto**: prototipo digital con el modelo 3D real del clip (STL en `public/models/`): vista explosionada, interior, accesorios (clip de chaleco / placa de casco), LED y vibración simulados, puntos de interés y ficha técnica. Usa three.js y se carga solo al abrir esa vista.
+- **Botón de hidratación**: el clip recuerda beber agua (vibración + LED celeste) pasado el intervalo configurado; el trabajador confirma con una pulsación larga (~1 s, pin D0 a GND). El panel muestra la última hidratación por trabajador, "Hidratación al día", pendientes y alertas si no hay registro. Es un registro autodeclarado: no modifica el puntaje de riesgo. En el visor 3D el botón está en la pared superior (punto 11) y se puede probar en la vista Producto.
 - **Umbrales**: sliders para atención / riesgo alto (guardados en localStorage; roles prevencionista y admin).
 
 ## Datos simulados
@@ -26,9 +26,3 @@ Arriba a la derecha del panel hay controles de simulación (pausa, velocidad, "o
 
 ## Estructura
 `src/pages` (vistas) · `src/components` (UI, gráficos SVG propios, mapa) · `src/context` (estado) · `src/lib` (riesgo + simulación) · `src/data/seed.js` (obra, zonas, trabajadores).
-
-## Despliegue (Cloudflare)
-Sitio estático (Vite). Se despliega con `wrangler.jsonc`, que ya incluye el fallback para las rutas de React Router.
-
-- **Desde GitHub (recomendado):** Cloudflare → Workers & Pages → Create → Import a repository. Build command: `npm run build` · Deploy command: `npx wrangler deploy`. Cada `git push` a `main` redespliega.
-- **Directo desde tu computador:** `npm run build && npx wrangler deploy` (la primera vez pide `npx wrangler login`).

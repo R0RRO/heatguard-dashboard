@@ -15,13 +15,15 @@ export const DEFAULT_THRESHOLDS = {
   alert: 72,     // score >= => Riesgo alto (rojo)
   autoPause: true,
   stillMinutes: 8, // minutos sin movimiento (acelerómetro) para alertar
+  hydrationMinutes: 30, // intervalo entre registros del botón de hidratación antes de recordar
 };
 
-export function riskScore({ at, exposure, activity, hydrated }) {
+export function riskScore({ at, exposure, activity }) {
   const thermal = clamp((at - 28) / 18);
   const expo = clamp(exposure / 150);
-  let score = 100 * (0.5 * thermal + 0.3 * expo + 0.2 * activity);
-  if (hydrated) score *= 0.93;
+  // El puntaje solo usa lo que el clip mide (ambiente + movimiento). El botón de hidratación es un registro
+  // autodeclarado y no lo modifica.
+  const score = 100 * (0.5 * thermal + 0.3 * expo + 0.2 * activity);
   return { score, factors: { thermal, expo, activity } };
 }
 
