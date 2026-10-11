@@ -65,9 +65,6 @@
   --color-heat-50:   #2b1a0e;  --color-heat-100:  #46250f;  --color-heat-300:  #c2410c;
 }
 
-/* Mapa en modo oscuro: invierte los tiles de OpenStreetMap */
-.dark .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(.92) contrast(.9); }
-.dark .leaflet-container { background: #0a1222; }
 .dark .btn-filter-active { background: var(--color-navy-500); border-color: var(--color-navy-500); }
 
 body {
@@ -110,7 +107,6 @@ body {
   .td { @apply px-4 py-3 text-sm whitespace-nowrap; }
 }
 
-.leaflet-container { font-family: inherit; }
 @keyframes pulse-ring { 0% { box-shadow: 0 0 0 0 rgba(220,38,38,.5);} 100% { box-shadow: 0 0 0 12px rgba(220,38,38,0);} }
 .pulse-crit { animation: pulse-ring 1.6s infinite; }
 @keyframes slide-in { from { transform: translateY(8px); opacity: 0;} to { transform: none; opacity: 1;} }

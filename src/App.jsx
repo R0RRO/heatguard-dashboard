@@ -7,7 +7,6 @@ import Toasts from './components/Toasts';
 import Dashboard from './pages/Dashboard';
 import Workers from './pages/Workers';
 import WorkerDetail from './pages/WorkerDetail';
-import MapView from './pages/MapView';
 import Alerts from './pages/Alerts';
 import Devices from './pages/Devices';
 import Settings from './pages/Settings';
@@ -24,7 +23,6 @@ function AppShell() {
         <Route path="/" element={<Dashboard />} />
         <Route path="/workers" element={<Workers />} />
         <Route path="/workers/:workerId" element={<WorkerDetail />} />
-        <Route path="/map" element={<MapView />} />
         <Route path="/alerts" element={<Alerts />} />
         <Route path="/devices" element={<Devices />} />
         <Route path="/producto" element={<Suspense fallback={<div className="page-layout text-sm text-slate-500">Cargando…</div>}><Product /></Suspense>} />

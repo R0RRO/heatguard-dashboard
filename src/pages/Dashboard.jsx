@@ -189,14 +189,14 @@ export default function Dashboard() {
             const color = z.kind === 'descanso' ? '#0891b2' : worst === 3 ? '#dc2626' : worst === 2 ? '#2563eb' : '#16a34a';
             const avgT = inZone.length ? inZone.reduce((a, w) => a + w.env.t, 0) / inZone.length : last.temp + z.tempOffset;
             return (
-              <Link key={z.id} to="/map" className="card-interactive no-underline p-3.5 block" style={{ borderTop: `4px solid ${color}` }}>
+              <div key={z.id} className="card p-3.5" style={{ borderTop: `4px solid ${color}` }}>
                 <p className="font-semibold text-sm text-ink">{z.name}</p>
                 <p className="text-xs text-slate-500 line-clamp-1">{z.desc}</p>
                 <div className="flex justify-between mt-2 text-xs text-slate-600">
                   <span><b className="text-ink">{inZone.length}</b> personas</span>
                   <span><b className="text-ink">{avgT.toFixed(1)}°</b> T. amb.</span>
                 </div>
-              </Link>
+              </div>
             );
           })}
         </div>

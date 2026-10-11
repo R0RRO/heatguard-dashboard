@@ -12,7 +12,6 @@ npm run dev
 ## Qué incluye
 - **Panel**: KPIs, evolución del estado de la cuadrilla, clima, quién requiere pausa, alertas abiertas, resumen por zona.
 - **Trabajadores** / **detalle**: T° y humedad ambiente, exposición, actividad, riesgo, gráficos históricos, dispositivo, acciones (pausa / hidratación).
-- **Mapa**: zonas y clips sobre Leaflet con color de semáforo (verde / azul / rojo).
 - **Alertas**: reconocer, ordenar pausa, resolver (salud térmica y dispositivos).
 - **Dispositivos**: batería, señal, firmware, inventario.
 - **Producto**: prototipo digital con el modelo 3D real del clip (STL en `public/models/`): vista explosionada, interior, accesorios (clip de chaleco / placa de casco), LED y vibración simulados, puntos de interés y ficha técnica. Usa three.js y se carga solo al abrir esa vista.
@@ -25,4 +24,4 @@ Para conectar datos reales, reemplazar el `setInterval` de `src/context/AppConte
 Arriba a la derecha del panel hay controles de simulación (pausa, velocidad, "ola de calor" ±°C).
 
 ## Estructura
-`src/pages` (vistas) · `src/components` (UI, gráficos SVG propios, mapa) · `src/context` (estado) · `src/lib` (riesgo + simulación) · `src/data/seed.js` (obra, zonas, trabajadores).
+`src/pages` (vistas) · `src/components` (UI, gráficos SVG propios) · `src/context` (estado) · `src/lib` (riesgo + simulación) · `src/data/seed.js` (obra, zonas, trabajadores).

@@ -5,7 +5,6 @@ import StatusBadge from '../components/StatusBadge';
 import KpiCard from '../components/KpiCard';
 import AlertItem from '../components/AlertItem';
 import ClipLogo from '../components/ClipLogo';
-import SiteMap from '../components/SiteMap';
 import { LineChart, BatteryPill } from '../components/Charts';
 import { ZONES } from '../data/seed';
 import { fmtDuration, fmtClock, distanceKm, recentSteps } from '../lib/format';
@@ -104,11 +103,6 @@ export default function WorkerDetail() {
           {mine.length === 0 ? <p className="text-sm text-slate-500 py-4">Sin alertas en este turno ({fmtClock(clock)}).</p>
             : mine.map((a) => <AlertItem key={a.id} alert={a} compact />)}
         </div>
-      </div>
-
-      <div className="card p-3">
-        <h2 className="section-heading mb-2 px-1">Ubicación</h2>
-        <SiteMap height={300} focusWorkerId={w.id} />
       </div>
     </div>
   );

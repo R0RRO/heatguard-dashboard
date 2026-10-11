@@ -14,7 +14,6 @@ export default function Navbar() {
   const links = [
     { to: '/', label: 'Panel' },
     { to: '/workers', label: 'Trabajadores' },
-    { to: '/map', label: 'Mapa' },
     { to: '/alerts', label: 'Alertas', badge: active },
     { to: '/devices', label: 'Dispositivos' },
     { to: '/producto', label: 'Producto' },
