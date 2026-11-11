@@ -27,3 +27,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Panel de pruebas: lectura del puerto serie (se genera con leer_xiao.sh)
+panel_pruebas/xiao_serial.txt

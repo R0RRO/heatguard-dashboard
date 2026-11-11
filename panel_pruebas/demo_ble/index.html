@@ -1,0 +1,480 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HeatGuard Clip · Demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #111317; --card: #1a1c21; --line: #2a2d34; --text: #f2f2f3; --muted: #9a9ca3;
+    --orange: #e8501e; --orange-soft: rgba(232, 80, 30, .14); --ok: #22c55e; --warn: #eab308;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.45 Inter, system-ui, sans-serif; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 20px 16px 32px; }
+
+  header { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 16px 20px; border-radius: 16px;
+           background: linear-gradient(90deg, #16181d 0%, #1b1c20 55%, #351b12 100%); border: 1px solid var(--line); }
+  header svg.logo { width: 38px; height: 46px; flex: none; }
+  .brand h1 { margin: 0; font: 800 24px/1 Poppins, sans-serif; letter-spacing: .5px; }
+  .brand h1 span { color: var(--orange); }
+  .brand p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+  .actions { margin-left: auto; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+  .pill { display: inline-flex; align-items: center; gap: 8px; padding: 7px 12px; border-radius: 999px;
+          background: #22252b; border: 1px solid var(--line); font-size: 13px; font-weight: 600; color: var(--muted); }
+  .pill i { width: 9px; height: 9px; border-radius: 50%; background: #5b5f68; }
+  .pill.on { color: #d1fadf; border-color: rgba(34, 197, 94, .45); background: rgba(34, 197, 94, .12); }
+  .pill.on i { background: var(--ok); box-shadow: 0 0 0 4px rgba(34, 197, 94, .2); animation: pulse 1.6s infinite; }
+  .pill.wait { color: #fde68a; border-color: rgba(234, 179, 8, .45); background: rgba(234, 179, 8, .1); }
+  .pill.wait i { background: var(--warn); }
+  .pill.sim { color: #fed7c7; border-color: rgba(232, 80, 30, .5); background: var(--orange-soft); }
+  .pill.sim i { background: var(--orange); }
+  @keyframes pulse { 50% { box-shadow: 0 0 0 7px rgba(34, 197, 94, 0); } }
+
+  button { font: 600 14px Inter, sans-serif; border-radius: 10px; padding: 9px 14px; cursor: pointer;
+           border: 1px solid var(--line); background: #22252b; color: var(--text); }
+  button:hover { border-color: #3a3e47; }
+  button.primary { background: var(--orange); border-color: var(--orange); color: #fff; }
+  button.primary:hover { filter: brightness(1.08); }
+  button:disabled { opacity: .5; cursor: default; }
+
+  .notice { margin: 14px 0 0; padding: 10px 14px; border-radius: 10px; font-size: 13.5px; display: none; }
+  .notice.show { display: block; }
+  .notice.err { background: rgba(239, 68, 68, .1); border: 1px solid rgba(239, 68, 68, .4); color: #fecaca; }
+  .notice.sim { background: var(--orange-soft); border: 1px solid rgba(232, 80, 30, .45); color: #fed7c7; }
+
+  .grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-top: 16px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; min-width: 0; }
+  .card h2 { margin: 0 0 6px; font-size: 12px; font-weight: 600; letter-spacing: .6px; text-transform: uppercase; color: var(--muted); }
+  .big { font: 700 32px/1.1 Inter, sans-serif; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .big small { font-size: 16px; font-weight: 600; color: var(--muted); margin-left: 3px; }
+  .sub { color: var(--muted); font-size: 12.5px; margin-top: 4px; }
+  .temp .big { color: var(--orange); font-size: 40px; }
+  .span2 { grid-column: span 2; }
+  .stride { display: flex; align-items: center; gap: 6px; margin-top: 6px; color: var(--muted); font-size: 12.5px; }
+  .stride input { width: 64px; background: #22252b; border: 1px solid var(--line); color: var(--text);
+                  border-radius: 7px; padding: 3px 6px; font: inherit; }
+  .state { display: inline-flex; align-items: center; gap: 8px; }
+  .state b { width: 10px; height: 10px; border-radius: 50%; background: #5b5f68; }
+  .state.walk b { background: var(--orange); }
+
+  .panels { display: grid; grid-template-columns: 2fr 1fr; gap: 12px; margin-top: 12px; }
+  .panel-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+  .panel-head h2 { margin: 0; }
+  #path { width: 100%; height: 360px; display: block; border-radius: 10px; background: #15171b; }
+  .compass { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .compass svg { width: 220px; height: 220px; max-width: 100%; }
+  .tilt { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; width: 100%; }
+  .tilt div { background: #15171b; border-radius: 10px; padding: 8px 10px; }
+  .tilt span { display: block; color: var(--muted); font-size: 12px; }
+  .tilt strong { font-size: 18px; font-variant-numeric: tabular-nums; }
+
+  .led { margin-top: 12px; display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+  .led h2 { margin: 0 0 4px; }
+  .led-preview { width: 64px; height: 64px; border-radius: 50%; background: #000; border: 2px solid var(--line); flex: none;
+                 transition: background .15s, box-shadow .15s; }
+  .led-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; flex: 1; }
+  .swatch { width: 34px; height: 34px; padding: 0; border-radius: 50%; border: 2px solid #3a3e47; }
+  .swatch:hover { border-color: #f2f2f3; }
+  .led input[type=color] { width: 46px; height: 38px; padding: 2px; border-radius: 10px; border: 1px solid var(--line);
+                           background: #22252b; cursor: pointer; }
+  .led input[type=range] { width: 150px; accent-color: var(--orange); }
+  .led .disabled { opacity: .45; pointer-events: none; }
+
+  footer { margin-top: 16px; color: var(--muted); font-size: 12.5px; line-height: 1.5; }
+
+  @media (max-width: 900px) {
+    .grid { grid-template-columns: repeat(2, 1fr); }
+    .span2 { grid-column: span 2; }
+    .panels { grid-template-columns: 1fr; }
+    #path { height: 300px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <svg class="logo" viewBox="0 0 200 240" aria-hidden="true">
+      <path d="M26 78 a60 60 0 0 1 60 -60 H114 a60 60 0 0 1 60 60 V182 a40 40 0 0 1 -40 40 H66 a40 40 0 0 1 -40 -40 Z" fill="none" stroke="#fff" stroke-width="12"/>
+      <path d="M79 65 a13 13 0 0 1 26 0 V136.96 a30 30 0 1 1 -26 0 Z" fill="#fff"/>
+      <path d="M87 65 a5 5 0 0 1 10 0 V141.5 a23 23 0 1 1 -10 0 Z" fill="#17181d"/>
+      <circle cx="92" cy="164" r="17" fill="#e8501e"/><rect x="87" y="100" width="10" height="64" rx="5" fill="#e8501e"/>
+      <g stroke="#fff" stroke-width="8" stroke-linecap="round"><path d="M122 74 H142"/><path d="M122 96 H134"/><path d="M122 118 H142"/></g>
+    </svg>
+    <div class="brand">
+      <h1>HEATGUARD <span>CLIP</span></h1>
+      <p>Demo en vivo del prototipo por Bluetooth</p>
+    </div>
+    <div class="actions">
+      <span id="status" class="pill"><i></i><span>Desconectado</span></span>
+      <button id="btnConnect" class="primary">Conectar clip</button>
+      <button id="btnDemo">Modo demo</button>
+    </div>
+  </header>
+
+  <div id="msg" class="notice"></div>
+
+  <section class="grid">
+    <div class="card span2 temp">
+      <h2>Temperatura del aire</h2>
+      <div class="big" id="vTemp">--<small>°C</small></div>
+      <div class="sub" id="vTempAge">Sin datos todavía</div>
+    </div>
+    <div class="card">
+      <h2>Humedad</h2>
+      <div class="big" id="vHum">--<small>%</small></div>
+      <div class="sub">relativa</div>
+    </div>
+    <div class="card">
+      <h2>Batería</h2>
+      <div class="big" id="vBat">--<small>%</small></div>
+      <div class="sub">estimada por voltaje</div>
+    </div>
+    <div class="card">
+      <h2>Pasos</h2>
+      <div class="big" id="vSteps">0</div>
+      <div class="sub state" id="vState"><b></b><span>Quieto</span></div>
+    </div>
+    <div class="card">
+      <h2>Distancia</h2>
+      <div class="big" id="vDist">0<small>m</small></div>
+      <label class="stride">Paso de <input id="stride" type="number" min="0.3" max="1.2" step="0.05" value="0.7"> m</label>
+    </div>
+  </section>
+
+  <section class="panels">
+    <div class="card">
+      <div class="panel-head">
+        <h2>Recorrido estimado</h2>
+        <button id="btnReset">Reiniciar recorrido</button>
+      </div>
+      <canvas id="path"></canvas>
+    </div>
+    <div class="card compass">
+      <div class="panel-head" style="width:100%"><h2>Orientación</h2><span class="sub" id="vHeading">0°</span></div>
+      <svg viewBox="-110 -124 220 234" aria-label="Brújula de rumbo relativo">
+        <circle r="100" fill="#15171b" stroke="#2a2d34" stroke-width="2"/>
+        <g id="ticks"></g>
+        <text y="-107" text-anchor="middle" fill="#9a9ca3" font-size="12" font-weight="700">INICIO</text>
+        <g id="needle">
+          <path d="M0 -70 L10 0 L0 -8 L-10 0 Z" fill="#e8501e"/>
+          <path d="M0 70 L10 0 L0 8 L-10 0 Z" fill="#3a3e47"/>
+          <circle r="6" fill="#f2f2f3"/>
+        </g>
+      </svg>
+      <div class="tilt">
+        <div><span>Inclinación adelante/atrás</span><strong id="vPitch">0°</strong></div>
+        <div><span>Inclinación lateral</span><strong id="vRoll">0°</strong></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card led">
+    <div id="ledPreview" class="led-preview"></div>
+    <div>
+      <h2>LED RGB del clip</h2>
+      <div class="sub" id="ledHint">Conecta el clip para cambiar el color.</div>
+    </div>
+    <div class="led-controls disabled" id="ledControls">
+      <button class="swatch" data-c="#ff0000" title="Rojo" style="background:#ff0000"></button>
+      <button class="swatch" data-c="#00ff00" title="Verde" style="background:#00ff00"></button>
+      <button class="swatch" data-c="#0000ff" title="Azul" style="background:#0000ff"></button>
+      <button class="swatch" data-c="#ffff00" title="Amarillo" style="background:#ffff00"></button>
+      <button class="swatch" data-c="#00ffff" title="Cian" style="background:#00ffff"></button>
+      <button class="swatch" data-c="#ff00ff" title="Magenta" style="background:#ff00ff"></button>
+      <button class="swatch" data-c="#ffffff" title="Blanco" style="background:#ffffff"></button>
+      <input type="color" id="ledColor" value="#e8501e" title="Elegir cualquier color">
+      <label class="sub">Brillo <input type="range" id="ledBright" min="0" max="100" value="100"></label>
+      <button id="ledOff">Apagar</button>
+    </div>
+  </section>
+
+  <footer>
+    El clip mide el ambiente donde está la persona (temperatura y humedad del aire), no su temperatura corporal.
+    La distancia se calcula como pasos × largo de paso, y el recorrido con el giroscopio: es una estimación relativa al
+    punto de inicio (el dispositivo no tiene GPS ni brújula) y se desvía con el tiempo. Prototipo académico.
+  </footer>
+</div>
+
+<script>
+const SVC_ENV = 0x181a, SVC_BAT = 0x180f, SVC_MOV = '7a1e0001-4865-6174-4775-617264436c70';
+const CH_LED = '7a1e0005-4865-6174-4775-617264436c70';
+const CH_TEMP = 0x2a6e, CH_HUM = 0x2a6f, CH_BAT = 0x2a19, CH_PAQ = '7a1e0004-4865-6174-4775-617264436c70';
+const $ = (id) => document.getElementById(id);
+
+let device = null, mode = 'off';           // off | ble | demo
+let lastTempAt = 0, lastStepAt = 0;
+let baseSteps = null, lastSteps = 0, headings = [];   // un rumbo por paso
+let heading = 0, demoTimer = null, manualDisconnect = false;
+let ledChar = null, ledHex = '#000000', ledBusy = false, ledPending = null;
+
+// ---------- interfaz ----------
+function setStatus(kind, text) {
+  const s = $('status');
+  s.className = 'pill' + (kind ? ' ' + kind : '');
+  s.querySelector('span').textContent = text;
+}
+function notice(kind, html) {
+  const m = $('msg');
+  m.className = 'notice' + (kind ? ' show ' + kind : '');
+  m.innerHTML = html || '';
+}
+function fmt(n, d = 1) { return Number.isFinite(n) ? n.toFixed(d).replace('.', ',') : '--'; }
+function stride() { const v = parseFloat($('stride').value); return v > 0 ? v : 0.7; }
+
+function showTemp(t) { $('vTemp').innerHTML = `${fmt(t)}<small>°C</small>`; lastTempAt = Date.now(); }
+function showHum(h) { $('vHum').innerHTML = `${fmt(h, 0)}<small>%</small>`; }
+function showBat(p) { $('vBat').innerHTML = `${p}<small>%</small>`; }
+function showMotion({ steps, rumbo, pitch, roll }) {
+  if (baseSteps === null || steps < lastSteps) { baseSteps = steps; lastSteps = steps; }
+  heading = rumbo;
+  const nuevos = steps - lastSteps;
+  if (nuevos > 0) {
+    for (let i = 0; i < Math.min(nuevos, 50); i++) headings.push(rumbo);
+    lastSteps = steps; lastStepAt = Date.now();
+    drawPath();
+  }
+  $('vSteps').textContent = (steps - baseSteps).toLocaleString('es-CL');
+  $('vDist').innerHTML = `${fmt((steps - baseSteps) * stride(), 1)}<small>m</small>`;
+  $('needle').setAttribute('transform', `rotate(${rumbo})`);
+  $('vHeading').textContent = `${Math.round(rumbo)}°`;
+  $('vPitch').textContent = `${Math.round(pitch)}°`;
+  $('vRoll').textContent = `${Math.round(roll)}°`;
+}
+
+setInterval(() => {
+  const walking = Date.now() - lastStepAt < 2500;
+  $('vState').className = 'sub state' + (walking ? ' walk' : '');
+  $('vState').querySelector('span').textContent = walking ? 'Caminando' : 'Quieto';
+  if (lastTempAt) {
+    const s = Math.round((Date.now() - lastTempAt) / 1000);
+    $('vTempAge').textContent = s <= 3 ? 'Actualizado recién' : `Actualizado hace ${s} s`;
+  }
+}, 500);
+
+// ---------- brújula ----------
+(function ticks() {
+  let g = '';
+  for (let a = 0; a < 360; a += 15) {
+    const long = a % 90 === 0, r1 = long ? 84 : 90;
+    const rad = a * Math.PI / 180, s = Math.sin(rad), c = -Math.cos(rad);
+    g += `<line x1="${s * r1}" y1="${c * r1}" x2="${s * 97}" y2="${c * 97}" stroke="${long ? '#9a9ca3' : '#3a3e47'}" stroke-width="${long ? 3 : 2}" stroke-linecap="round"/>`;
+  }
+  $('ticks').innerHTML = g;
+})();
+
+// ---------- recorrido ----------
+function pathPoints() {
+  const L = stride(), pts = [{ x: 0, y: 0 }];
+  let x = 0, y = 0;
+  for (const h of headings) {
+    const r = h * Math.PI / 180;
+    x += L * Math.sin(r); y += L * Math.cos(r);
+    pts.push({ x, y });
+  }
+  return pts;
+}
+function niceStep(span) {
+  const raw = span / 6, p = Math.pow(10, Math.floor(Math.log10(raw)));
+  for (const m of [1, 2, 5, 10]) if (raw <= m * p) return m * p;
+  return 10 * p;
+}
+function drawPath() {
+  const cv = $('path'), dpr = window.devicePixelRatio || 1;
+  const W = cv.clientWidth, H = cv.clientHeight;
+  if (cv.width !== W * dpr || cv.height !== H * dpr) { cv.width = W * dpr; cv.height = H * dpr; }
+  const ctx = cv.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, W, H);
+
+  const pts = pathPoints();
+  let minX = 0, maxX = 0, minY = 0, maxY = 0;
+  for (const p of pts) { minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y); }
+  const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2, pad = 34;
+  const span = Math.max(10, (maxX - minX) * 1.15, (maxY - minY) * 1.15 * (W / H));
+  const k = (W - 2 * pad) / span;
+  const X = (x) => W / 2 + (x - cx) * k, Y = (y) => H / 2 - (y - cy) * k;
+
+  // cuadrícula
+  const st = niceStep(span);
+  ctx.strokeStyle = '#22252b'; ctx.lineWidth = 1;
+  for (let gx = Math.floor((cx - W / 2 / k) / st) * st; X(gx) < W; gx += st) { ctx.beginPath(); ctx.moveTo(X(gx), 0); ctx.lineTo(X(gx), H); ctx.stroke(); }
+  for (let gy = Math.floor((cy - H / 2 / k) / st) * st; Y(gy) > 0; gy += st) { ctx.beginPath(); ctx.moveTo(0, Y(gy)); ctx.lineTo(W, Y(gy)); ctx.stroke(); }
+
+  // escala
+  ctx.strokeStyle = '#9a9ca3'; ctx.fillStyle = '#9a9ca3'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(16, H - 16); ctx.lineTo(16 + st * k, H - 16); ctx.stroke();
+  ctx.font = '600 12px Inter, sans-serif';
+  ctx.fillText(`${st} m`, 16, H - 24);
+
+  // trayecto
+  if (pts.length > 1) {
+    ctx.strokeStyle = '#e8501e'; ctx.lineWidth = 3; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(X(pts[0].x), Y(pts[0].y));
+    for (const p of pts) ctx.lineTo(X(p.x), Y(p.y));
+    ctx.stroke();
+  }
+  // inicio
+  ctx.fillStyle = '#15171b'; ctx.strokeStyle = '#f2f2f3'; ctx.lineWidth = 2.5;
+  ctx.beginPath(); ctx.arc(X(0), Y(0), 7, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#9a9ca3'; ctx.fillText('Inicio', X(0) + 11, Y(0) + 4);
+  // posición actual con flecha de rumbo
+  const last = pts[pts.length - 1], r = heading * Math.PI / 180;
+  ctx.save(); ctx.translate(X(last.x), Y(last.y)); ctx.rotate(r);
+  ctx.fillStyle = 'rgba(232,80,30,.22)'; ctx.beginPath(); ctx.arc(0, 0, 16, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#e8501e'; ctx.beginPath(); ctx.moveTo(0, -13); ctx.lineTo(8, 8); ctx.lineTo(0, 4); ctx.lineTo(-8, 8); ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
+window.addEventListener('resize', drawPath);
+$('stride').addEventListener('input', () => { drawPath(); $('vDist').innerHTML = `${fmt((lastSteps - (baseSteps ?? lastSteps)) * stride(), 1)}<small>m</small>`; });
+$('btnReset').addEventListener('click', () => {
+  baseSteps = lastSteps; headings = [];
+  $('vSteps').textContent = '0'; $('vDist').innerHTML = '0<small>m</small>';
+  drawPath();
+});
+
+// ---------- Bluetooth ----------
+async function subscribe(server, svc, ch, parse) {
+  const c = await (await server.getPrimaryService(svc)).getCharacteristic(ch);
+  c.addEventListener('characteristicvaluechanged', (e) => parse(e.target.value));
+  try { parse(await c.readValue()); } catch (_) {}
+  await c.startNotifications();
+}
+async function setupGatt() {
+  const server = await device.gatt.connect();
+  const fallas = [];
+  await subscribe(server, SVC_ENV, CH_TEMP, (v) => showTemp(v.getInt16(0, true) / 100)).catch(() => fallas.push('temperatura'));
+  await subscribe(server, SVC_ENV, CH_HUM, (v) => showHum(v.getUint16(0, true) / 100)).catch(() => fallas.push('humedad'));
+  await subscribe(server, SVC_BAT, CH_BAT, (v) => showBat(v.getUint8(0))).catch(() => fallas.push('batería'));
+  await subscribe(server, SVC_MOV, CH_PAQ, (v) => {
+    if (v.byteLength < 12) return;
+    showMotion({ steps: v.getUint32(0, true), rumbo: v.getInt16(4, true) / 10, pitch: v.getInt16(6, true) / 10, roll: v.getInt16(8, true) / 10 });
+  }).catch(() => fallas.push('movimiento'));
+  ledChar = null;
+  try { ledChar = await (await server.getPrimaryService(SVC_MOV)).getCharacteristic(CH_LED); } catch (_) {}
+  ledEnabled(!!ledChar, ledChar ? 'Elige un color: el LED del clip cambia al instante.' : 'Este programa del clip no tiene control del LED: sube de nuevo heatguard_demo.');
+  setStatus('on', `Conectado · ${device.name || 'HeatGuard Clip'}`);
+  $('btnConnect').textContent = 'Desconectar';
+  notice(fallas.length ? 'err' : '', fallas.length
+    ? `Conectado, pero el clip no envía: ${fallas.join(', ')}. Revisa que tenga cargado el programa <b>heatguard_demo</b>.` : '');
+}
+async function onDisconnected() {
+  if (mode !== 'ble') return;
+  if (manualDisconnect) { manualDisconnect = false; return; }
+  setStatus('wait', 'Se perdió la conexión, reconectando…');
+  for (let i = 0; i < 6 && mode === 'ble'; i++) {
+    await new Promise((r) => setTimeout(r, 1000 + i * 1000));
+    try { await setupGatt(); return; } catch (_) {}
+  }
+  if (mode === 'ble') { mode = 'off'; ledChar = null; ledEnabled(false, 'Conecta el clip para cambiar el color.'); setStatus('', 'Desconectado'); $('btnConnect').textContent = 'Conectar clip'; }
+}
+async function connect() {
+  if (!navigator.bluetooth) {
+    notice('err', 'Este navegador no tiene Bluetooth web. Usa <b>Google Chrome</b> o <b>Edge</b> (en Linux puede que tengas que activar <code>chrome://flags/#enable-experimental-web-platform-features</code>), y abre la página desde <code>localhost</code>.');
+    return;
+  }
+  stopDemo();
+  try {
+    setStatus('wait', 'Buscando el clip…');
+    device = await navigator.bluetooth.requestDevice({
+      filters: [{ name: 'HeatGuard Clip' }],
+      optionalServices: [SVC_ENV, SVC_BAT, SVC_MOV],
+    });
+    device.addEventListener('gattserverdisconnected', onDisconnected);
+    mode = 'ble';
+    let error = null;
+    for (let i = 1; i <= 3; i++) {             // en Linux el primer intento suele fallar
+      setStatus('wait', i === 1 ? 'Conectando…' : `Conectando… (intento ${i} de 3)`);
+      try { await setupGatt(); error = null; break; }
+      catch (e) { error = e; await new Promise((r) => setTimeout(r, 1500)); }
+    }
+    if (error) throw error;
+  } catch (e) {
+    mode = 'off';
+    setStatus('', 'Desconectado');
+    if (e.name !== 'NotFoundError') notice('err', `No se pudo conectar (${e.message}). Revisa que el clip no esté conectado al teléfono (cierra nRF Connect o desactiva el Bluetooth del teléfono), que esté encendido y cerca, y vuelve a intentar.`);
+  }
+}
+$('btnConnect').addEventListener('click', () => {
+  if (mode === 'ble' && device?.gatt.connected) {
+    manualDisconnect = true; mode = 'off'; ledChar = null; ledEnabled(false, 'Conecta el clip para cambiar el color.'); device.gatt.disconnect();
+    setStatus('', 'Desconectado'); $('btnConnect').textContent = 'Conectar clip';
+  } else connect();
+});
+
+// ---------- modo demo (datos simulados) ----------
+function stopDemo() {
+  if (!demoTimer) return;
+  clearInterval(demoTimer); demoTimer = null; mode = 'off';
+  $('btnDemo').textContent = 'Modo demo';
+  ledEnabled(false, 'Conecta el clip para cambiar el color.');
+  setStatus('', 'Desconectado'); notice('', '');
+}
+function startDemo() {
+  if (mode === 'ble' && device?.gatt.connected) { manualDisconnect = true; device.gatt.disconnect(); }
+  mode = 'demo';
+  baseSteps = null; lastSteps = 0; headings = [];
+  $('btnDemo').textContent = 'Salir del demo'; $('btnConnect').textContent = 'Conectar clip';
+  setStatus('sim', 'Modo demo');
+  ledChar = null; ledEnabled(true, 'Modo demo: solo cambia la vista previa, no el LED real.');
+  notice('sim', '<b>Modo demo:</b> los datos son simulados, no vienen del clip.');
+  let t = 0, steps = 0, rumbo = 20, temp = 26.2, hum = 60;
+  showBat(78);
+  demoTimer = setInterval(() => {
+    t += 0.1;
+    const caminando = (t % 30) < 22;
+    if (caminando) {
+      rumbo = (rumbo + 4 * Math.sin(t / 3.1) * 0.1 * 10 + 360) % 360;
+      if (Math.round(t * 10) % 6 === 0) steps++;
+    }
+    showMotion({ steps, rumbo, pitch: 3 + Math.sin(t * 2) * (caminando ? 4 : 0.5), roll: -2 + Math.cos(t * 1.7) * (caminando ? 3 : 0.5) });
+    if (Math.round(t * 10) % 20 === 0) {
+      temp += (Math.random() - 0.5) * 0.12; hum += (Math.random() - 0.5) * 0.6;
+      showTemp(temp); showHum(hum);
+    }
+  }, 100);
+}
+$('btnDemo').addEventListener('click', () => (demoTimer ? stopDemo() : startDemo()));
+
+// ---------- LED RGB ----------
+function ledEnabled(on, hint) {
+  $('ledControls').classList.toggle('disabled', !on);
+  $('ledHint').textContent = hint;
+}
+function rgbOf(hex) {
+  const n = parseInt(hex.slice(1), 16), k = parseInt($('ledBright').value, 10) / 100;
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => Math.round(v * k));
+}
+async function sendLed(rgb) {
+  if (!ledChar) return;
+  if (ledBusy) { ledPending = rgb; return; }      // no saturar el Bluetooth al arrastrar
+  ledBusy = true;
+  try {
+    const data = new Uint8Array(rgb);
+    if (ledChar.writeValueWithoutResponse) await ledChar.writeValueWithoutResponse(data);
+    else await ledChar.writeValue(data);
+  } catch (_) {}
+  ledBusy = false;
+  if (ledPending) { const r = ledPending; ledPending = null; sendLed(r); }
+}
+function setLed(hex) {
+  ledHex = hex;
+  const rgb = rgbOf(hex), on = rgb.some((v) => v > 0);
+  const css = `rgb(${rgb.join(',')})`;
+  $('ledPreview').style.background = on ? css : '#000';
+  $('ledPreview').style.boxShadow = on ? `0 0 24px 4px rgba(${rgb.join(',')},.55)` : 'none';
+  sendLed(rgb);
+}
+document.querySelectorAll('.swatch').forEach((b) => b.addEventListener('click', () => { $('ledColor').value = b.dataset.c; setLed(b.dataset.c); }));
+$('ledColor').addEventListener('input', (e) => setLed(e.target.value));
+$('ledBright').addEventListener('input', () => setLed(ledHex));
+$('ledOff').addEventListener('click', () => setLed('#000000'));
+
+drawPath();
+if (!navigator.bluetooth) notice('err', 'Este navegador no tiene Bluetooth web. Usa <b>Google Chrome</b> o <b>Edge</b> y abre la página desde <code>localhost</code> (con el script <code>demo_ble.sh</code>). Mientras tanto puedes probar el <b>Modo demo</b>.');
+</script>
+</body>
+</html>
