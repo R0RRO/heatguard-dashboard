@@ -1,67 +1,93 @@
-// Modelo de riesgo térmico (demo). Reemplazar por el algoritmo real del clip
-// cuando exista backend/firmware.
+// Estado del trabajador según la EXPOSICIÓN ACUMULADA (calor + movimiento) y las pausas de hidratación y descanso.
+//
+// Idea del producto: el clip pide una pausa de hidratación y descanso cuando el trabajador lleva cierto
+// tiempo expuesto al calor y moviéndose. La pausa empieza y termina solo cuando el trabajador mantiene
+// presionado el botón del clip.
+//
+//   normal     verde parpadeante     condición óptima
+//   cansancio  amarillo              la exposición llegó al umbral de cansancio
+//   descanso   rojo + vibración      toca descanso: pausa solicitada (5 pulsos cada 40 s) hasta que se acepta
+//   pausa      azul fijo             en pausa (botón mantenido 2 s)
+//   finPausa   azul parpadeante + vibración   se cumplió el tiempo de pausa; se cierra con el botón
+//
+// La exposición acumulada es una REGLA DEL PROTOTIPO, sin validar: no es un índice normativo ni mide fatiga real.
+// El mismo cálculo está en el firmware (firmware/heatguard_clip/heatguard_clip.ino).
+import { hiCategory } from './heatIndex.js';
 
 export const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
 
-// Índice de calor interno (Steadman, viento ~1 m/s): combina temperatura y humedad
-// medidas por el clip. En la UI solo se muestra la temperatura ambiente.
-export function apparentTemp(t, rh) {
-  const e = (rh / 100) * 6.105 * Math.exp((17.27 * t) / (237.7 + t));
-  return t + 0.33 * e - 0.7 - 4.0;
+// Factor de calor según la categoría del Heat Index del NWS (0 normal … 4 peligro extremo)
+export const HEAT_FACTOR = [1, 1.5, 2, 3, 4];
+export const heatFactor = (hiC) => HEAT_FACTOR[hiCategory(hiC)?.level ?? 0];
+// Factor de movimiento: quieto 0,75 · índice máximo 1,25
+export const moveFactor = (mov01) => 0.75 + 0.5 * clamp(mov01);
+// Factor personal según el índice de masa corporal (IMC = peso ÷ altura²). NIOSH menciona la obesidad como
+// un factor que aumenta el riesgo por calor, pero no da un multiplicador: estos valores son una REGLA DEL
+// PROTOTIPO, sin validar. Sin datos, el factor es ×1.
+export const PERSONAL_FACTORS = [
+  { maxBmi: 25, factor: 1.0, label: 'IMC bajo 25' },
+  { maxBmi: 30, factor: 1.1, label: 'IMC 25 a 30' },
+  { maxBmi: Infinity, factor: 1.2, label: 'IMC 30 o más' },
+];
+export function bmi(heightCm, weightKg) {
+  if (!(heightCm >= 120 && heightCm <= 230 && weightKg >= 35 && weightKg <= 250)) return null;
+  return weightKg / (heightCm / 100) ** 2;
 }
+export function personalFactor(heightCm, weightKg) {
+  const b = bmi(heightCm, weightKg);
+  if (b == null) return 1;
+  return PERSONAL_FACTORS.find((p) => b < p.maxBmi).factor;
+}
+
+// Exposición que suma cada minuto, en % del límite
+export const loadRate = (hiC, mov01, th, personal = 1) => (100 * heatFactor(hiC) * moveFactor(mov01) * personal) / th.loadLimit;
+// Recuperación por minuto de pausa: una pausa completa devuelve la exposición de 100 % a 0 %
+export const recoveryRate = (th) => 100 / th.pauseMinutes;
+// Minutos de trabajo hasta el límite, con un factor de calor dado, movimiento medio y factor personal
+export const minutesToLimit = (th, factor, personal = 1) => th.loadLimit / (factor * personal);
+
+export const TIRED_HYSTERESIS = 5; // puntos de exposición bajo el umbral para volver de cansancio a normal
 
 export const DEFAULT_THRESHOLDS = {
-  attention: 50, // score >= => Atención (azul)
-  alert: 72,     // score >= => Riesgo alto (rojo)
-  autoPause: true,
-  stillMinutes: 8, // minutos sin movimiento (acelerómetro) para alertar
-  hydrationMinutes: 30, // intervalo entre registros del botón de hidratación antes de recordar
+  loadLimit: 120,     // minutos-equivalentes de exposición para llegar a 100 % (120 min en sombra fresca, 40 min en "Peligro")
+  tiredPct: 70,       // desde aquí: cansancio (amarillo)
+  pauseMinutes: 15,   // duración de la pausa de hidratación y descanso
+  autoPause: true,    // al llegar al 100 % se solicita la pausa sola
+  confirmMinutes: 5,  // minutos de pausa solicitada sin aceptar antes de alertar al supervisor
+  simResponds: true,  // los trabajadores simulados presionan el botón cuando el clip lo pide
 };
 
-export function riskScore({ at, exposure, activity }) {
-  const thermal = clamp((at - 28) / 18);
-  const expo = clamp(exposure / 150);
-  // El puntaje solo usa lo que el clip mide (ambiente + movimiento). El botón de hidratación es un registro
-  // autodeclarado y no lo modifica.
-  const score = 100 * (0.5 * thermal + 0.3 * expo + 0.2 * activity);
-  return { score, factors: { thermal, expo, activity } };
-}
-
-export function statusFromScore(score, th) {
-  if (score >= th.alert) return 'alerta';
-  if (score >= th.attention) return 'atencion';
+// Estado del clip a partir de la exposición y la pausa. prev permite la histéresis del amarillo.
+export function computeStatus({ load, resting, pauseElapsed, pauseReq }, th, prev = null) {
+  if (resting) return pauseElapsed >= th.pauseMinutes ? 'finPausa' : 'pausa';
+  if (pauseReq) return 'descanso';
+  if (load >= th.tiredPct) return 'cansancio';
+  if (prev === 'cansancio' && load > th.tiredPct - TIRED_HYSTERESIS) return 'cansancio';
   return 'normal';
 }
 
-export function mainReason(factors) {
-  const list = [
-    ['thermal', 'Temperatura ambiente alta'],
-    ['expo', 'Exposición acumulada prolongada'],
-    ['activity', 'Alta actividad física'],
-  ];
-  const w = { thermal: 0.5, expo: 0.3, activity: 0.2 };
-  return list
-    .map(([k, label]) => ({ label, v: factors[k] * w[k] }))
-    .sort((a, b) => b.v - a.v)
-    .slice(0, 2)
-    .map((x) => x.label)
-    .join(' + ');
+export function mainReason(w) {
+  if (w.pauseReq?.source === 'supervisor') return 'Pausa solicitada por el supervisor';
+  const f = heatFactor(w.env.hi);
+  const cat = hiCategory(w.env.hi);
+  return `Exposición ${Math.round(w.load)} % · sensación térmica (Heat Index) ${cat ? cat.label.toLowerCase() : '—'} (×${f}) · movimiento ${Math.round(w.activity * 100)} (${w.activity < 0.34 ? 'bajo' : w.activity < 0.67 ? 'medio' : 'alto'})`;
 }
 
-// Config visual (semáforo del clip: verde / azul / rojo)
+// Colores y textos (los mismos que muestra el LED del clip)
 export const STATUS = {
-  normal:   { label: 'Normal',     hex: '#16a34a', badge: 'bg-green-50 text-green-700 border-green-200', dot: 'bg-green-500', bar: 'bg-green-500' },
-  atencion: { label: 'Atención',   hex: '#2563eb', badge: 'bg-blue-50 text-blue-700 border-blue-200',   dot: 'bg-blue-500',  bar: 'bg-blue-500' },
-  alerta:   { label: 'Riesgo alto', hex: '#dc2626', badge: 'bg-red-50 text-red-700 border-red-200',     dot: 'bg-red-500',   bar: 'bg-red-500' },
-  pausa:    { label: 'En pausa',   hex: '#0891b2', badge: 'bg-cyan-50 text-cyan-700 border-cyan-200',   dot: 'bg-cyan-500',  bar: 'bg-cyan-500' },
-  offline:  { label: 'Sin señal',  hex: '#64748b', badge: 'bg-slate-100 text-slate-600 border-slate-200', dot: 'bg-slate-400', bar: 'bg-slate-400' },
+  normal:    { label: 'Óptimo',         hex: '#16a34a', led: 'verde parpadeante', badge: 'bg-green-50 text-green-700 border-green-200', dot: 'bg-green-500', bar: 'bg-green-500' },
+  cansancio: { label: 'Cansancio',      hex: '#ca8a04', led: 'amarillo', badge: 'bg-yellow-50 text-yellow-800 border-yellow-300', dot: 'bg-yellow-500', bar: 'bg-yellow-500' },
+  descanso:  { label: 'Toca descanso',  hex: '#dc2626', led: 'rojo + vibración', badge: 'bg-red-50 text-red-700 border-red-200', dot: 'bg-red-500', bar: 'bg-red-500' },
+  pausa:     { label: 'En pausa',       hex: '#2563eb', led: 'azul fijo', badge: 'bg-blue-50 text-blue-700 border-blue-200', dot: 'bg-blue-500', bar: 'bg-blue-500' },
+  finPausa:  { label: 'Pausa cumplida', hex: '#1d4ed8', led: 'azul parpadeante + vibración', badge: 'bg-indigo-50 text-indigo-700 border-indigo-300', dot: 'bg-indigo-500', bar: 'bg-indigo-500' },
+  offline:   { label: 'Sin señal',      hex: '#64748b', led: '—', badge: 'bg-slate-100 text-slate-600 border-slate-200', dot: 'bg-slate-400', bar: 'bg-slate-400' },
 };
+export const WORK_STATES = ['normal', 'cansancio', 'descanso'];
 
-// Estado "visible" (considera pausa y conectividad)
+// Estado "visible" (considera la conectividad)
 export function displayStatus(w) {
   if (!w.online) return 'offline';
-  if (w.resting && w.status === 'normal') return 'pausa';
   return w.status;
 }
 
-export const STATUS_RANK = { alerta: 3, atencion: 2, normal: 1 };
+export const STATUS_RANK = { descanso: 3, cansancio: 2, normal: 1, pausa: 0, finPausa: 0 };

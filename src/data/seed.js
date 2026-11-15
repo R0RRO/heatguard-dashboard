@@ -36,6 +36,9 @@ export const WORKER_SEEDS = NAMES.map((name, i) => ({
   zoneId: ['z1', 'z2', 'z3', 'z4'][i % 4],
   deviceId: `HG-${String(101 + i).padStart(4, '0')}`,
   mount: i % 3 === 0 ? 'chaleco' : 'casco',
+  // Datos de ejemplo (ficticios). Se editan en el detalle de cada trabajador.
+  heightCm: 160 + ((i * 7) % 26),
+  weightKg: 62 + ((i * 11) % 40),
 }));
 
 // Clips en bodega (sin asignar)

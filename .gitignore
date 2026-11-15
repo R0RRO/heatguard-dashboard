@@ -30,3 +30,20 @@ dist-ssr
 
 # Panel de pruebas: lectura del puerto serie (se genera con leer_xiao.sh)
 panel_pruebas/xiao_serial.txt
+
+# Archivos apartados para borrar a mano
+_to_delete/
+
+
+# Datos del servidor (usuarios con contraseñas cifradas y estado) y credenciales de despliegue
+server/data/
+deploy/credenciales.env
+
+# Android
+android/.gradle/
+android/.idea/
+android/build/
+android/app/build/
+android/local.properties
+*.iml
+panel_pruebas/eventos/

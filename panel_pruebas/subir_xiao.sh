@@ -1,9 +1,14 @@
 #!/usr/bin/env bash
 # Compila y sube un programa a la XIAO ESP32-C3 sin Arduino IDE (usa arduino-cli).
-# Uso: ./subir_xiao.sh [carpeta_del_programa]   (por defecto: firmware/bateria_test)
+# Uso: ./subir_xiao.sh [carpeta_del_programa]
+#   Sin argumento sube el firmware del clip (firmware/heatguard_clip, en la raíz del repositorio).
+#   La carpeta puede darse relativa a donde estás parado o relativa a panel_pruebas/.
 set -e
-cd "$(dirname "$0")"
-SKETCH="${1:-firmware/bateria_test}"
+AQUI="$(cd "$(dirname "$0")" && pwd)"
+SKETCH="${1:-$AQUI/../firmware/heatguard_clip}"
+if [ -d "$SKETCH" ]; then SKETCH="$(cd "$SKETCH" && pwd)"; else SKETCH="$AQUI/$SKETCH"; fi
+if [ ! -d "$SKETCH" ]; then echo "ERROR: no existe la carpeta $SKETCH"; exit 1; fi
+cd "$AQUI"
 FQBN="esp32:esp32:XIAO_ESP32C3"
 URL="https://espressif.github.io/arduino-esp32/package_esp32_index.json"
 export PATH="$HOME/.local/bin:$PATH"

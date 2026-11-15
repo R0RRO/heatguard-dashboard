@@ -288,7 +288,7 @@ export default function ClipViewer({
 
       // LEDs (prioridad: confirmación > recordatorio > estado)
       let cfg = LED_STATES[p.ledState] || LED_STATES.normal;
-      let blink = p.ledState === 'alerta' ? (Math.sin(t * 9) > 0 ? 1 : 0.25) : 1;
+      let blink = cfg.blink === 'fast' ? (Math.sin(t * 9) > 0 ? 1 : 0.15) : cfg.blink === 'slow' ? ((t % 2.4) < 0.4 ? 1 : 0.12) : 1;
       if (acking) { cfg = { color: SIGNALS.registro.color }; blink = ackOn ? 1 : 0.1; }
       else if (p.reminder) { cfg = { color: SIGNALS.recordatorio.color }; blink = 0.55 + 0.45 * Math.sin(t * 3.2); }
       ledMat.emissive.set(cfg.color);
@@ -307,7 +307,8 @@ export default function ClipViewer({
       // Vibración
       const remBuzz = p.reminder && !acking && (t % 1.6) < 0.35;
       const ackBuzz = acking && dtAck > 0.45 && dtAck < 0.8;
-      if (p.vibrate || remBuzz || ackBuzz) root.position.set(Math.sin(t * 95) * 0.45, Math.cos(t * 80) * 0.35, 0);
+      const pattern = p.ledState === 'descanso' ? (t % 4) < 2 && (t % 0.4) < 0.2 : true; // 5 pulsos y luego silencio (acortado)
+      if ((p.vibrate && pattern) || remBuzz || ackBuzz) root.position.set(Math.sin(t * 95) * 0.45, Math.cos(t * 80) * 0.35, 0);
       else root.position.set(0, 0, 0);
 
       // Puntos de interés proyectados sobre el canvas

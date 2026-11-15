@@ -17,7 +17,7 @@ export default function Navbar() {
     { to: '/alerts', label: 'Alertas', badge: active },
     { to: '/devices', label: 'Dispositivos' },
     { to: '/producto', label: 'Producto' },
-    ...(user.role !== 'supervisor' ? [{ to: '/settings', label: 'Umbrales' }] : []),
+    { to: '/settings', label: 'Pausas' },
   ];
   const isActive = (to) => (to === '/' ? pathname === '/' : pathname.startsWith(to));
 
@@ -50,7 +50,7 @@ export default function Navbar() {
             <ThemeToggle />
             <div className="hidden sm:block text-right leading-tight">
               <p className="text-sm font-semibold text-white">{user.name}</p>
-              <p className="text-[11px] text-navy-200 capitalize">{user.role}</p>
+              <p className="text-[11px] text-navy-200 capitalize">{user.demo ? 'sin servidor' : user.role}</p>
             </div>
             <button onClick={logout} title="Cerrar sesión" className="hidden sm:flex p-2 rounded-lg text-navy-200 hover:bg-white/10 hover:text-white cursor-pointer">
               <LogOut className="w-4 h-4" />

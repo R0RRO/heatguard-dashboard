@@ -84,6 +84,20 @@
   .led input[type=range] { width: 150px; accent-color: var(--orange); }
   .led .disabled { opacity: .45; pointer-events: none; }
 
+  .motor-icon { width: 64px; height: 64px; border-radius: 50%; background: #15171b; border: 2px solid var(--line); flex: none;
+                display: grid; place-items: center; color: var(--muted); font-size: 26px; }
+  .motor-icon.on { color: var(--orange); border-color: var(--orange); animation: buzz .08s linear infinite; }
+  @keyframes buzz { 0% { transform: translate(1px, 0); } 50% { transform: translate(-1px, 1px); } 100% { transform: translate(1px, -1px); } }
+  button.active { background: var(--orange-soft); border-color: var(--orange); color: #fed7c7; }
+
+  .btn-dot { width: 64px; height: 64px; border-radius: 50%; background: #15171b; border: 2px solid var(--line); flex: none;
+             display: grid; place-items: center; font-size: 12px; font-weight: 700; color: var(--muted); transition: all .08s; }
+  .btn-dot.on { background: var(--orange); border-color: var(--orange); color: #fff; transform: scale(.92); }
+  .btn-stats { display: flex; gap: 10px; flex-wrap: wrap; flex: 1; }
+  .btn-stats div { background: #15171b; border-radius: 10px; padding: 8px 12px; min-width: 120px; }
+  .btn-stats span { display: block; color: var(--muted); font-size: 12px; }
+  .btn-stats strong { font-size: 18px; font-variant-numeric: tabular-nums; }
+
   footer { margin-top: 16px; color: var(--muted); font-size: 12.5px; line-height: 1.5; }
 
   @media (max-width: 900px) {
@@ -192,6 +206,34 @@
     </div>
   </section>
 
+  <section class="card led">
+    <div id="motorIcon" class="motor-icon" aria-hidden="true">≋</div>
+    <div>
+      <h2>Motor de vibración</h2>
+      <div class="sub" id="motorHint">Conecta el clip para probar el motor.</div>
+    </div>
+    <div class="led-controls disabled" id="motorControls">
+      <button id="motor1">Vibrar 1 s</button>
+      <button id="motor3">3 pulsos</button>
+      <button id="motorCont">Continuo</button>
+      <button id="motorStop">Detener</button>
+      <label class="sub">Intensidad <input type="range" id="motorPow" min="40" max="100" value="100"></label>
+    </div>
+  </section>
+
+  <section class="card led">
+    <div id="btnDot" class="btn-dot">SUELTO</div>
+    <div>
+      <h2>Botón de hidratación</h2>
+      <div class="sub" id="btnHint">Conecta el clip para ver el botón.</div>
+    </div>
+    <div class="btn-stats">
+      <div><span>Pulsaciones cortas</span><strong id="btnShort">0</strong></div>
+      <div><span>Hidratación (mantener 1 s)</span><strong id="btnLong">0</strong></div>
+      <div><span>Último evento</span><strong id="btnLast">—</strong></div>
+    </div>
+  </section>
+
   <footer>
     El clip mide el ambiente donde está la persona (temperatura y humedad del aire), no su temperatura corporal.
     La distancia se calcula como pasos × largo de paso, y el recorrido con el giroscopio: es una estimación relativa al
@@ -202,6 +244,8 @@
 <script>
 const SVC_ENV = 0x181a, SVC_BAT = 0x180f, SVC_MOV = '7a1e0001-4865-6174-4775-617264436c70';
 const CH_LED = '7a1e0005-4865-6174-4775-617264436c70';
+const CH_MOT = '7a1e0006-4865-6174-4775-617264436c70';
+const CH_BTN = '7a1e0007-4865-6174-4775-617264436c70';
 const CH_TEMP = 0x2a6e, CH_HUM = 0x2a6f, CH_BAT = 0x2a19, CH_PAQ = '7a1e0004-4865-6174-4775-617264436c70';
 const $ = (id) => document.getElementById(id);
 
@@ -209,6 +253,8 @@ let device = null, mode = 'off';           // off | ble | demo
 let lastTempAt = 0, lastStepAt = 0;
 let baseSteps = null, lastSteps = 0, headings = [];   // un rumbo por paso
 let heading = 0, demoTimer = null, manualDisconnect = false;
+let motorChar = null, motorTimers = [];
+let btnLastCount = null, btnShortN = 0, btnLongN = 0;
 let ledChar = null, ledHex = '#000000', ledBusy = false, ledPending = null;
 
 // ---------- interfaz ----------
@@ -355,6 +401,13 @@ async function setupGatt() {
   }).catch(() => fallas.push('movimiento'));
   ledChar = null;
   try { ledChar = await (await server.getPrimaryService(SVC_MOV)).getCharacteristic(CH_LED); } catch (_) {}
+  btnLastCount = null;
+  await subscribe(server, SVC_MOV, CH_BTN, (v) => { if (v.byteLength >= 4) showButton(v.getUint8(0), v.getUint8(1), v.getUint16(2, true)); })
+    .then(() => { $('btnHint').textContent = 'Toca el botón: corto cuenta una pulsación, mantenerlo 1 s registra hidratación.'; })
+    .catch(() => { $('btnHint').textContent = 'Este programa del clip no informa el botón: sube de nuevo heatguard_demo.'; });
+  motorChar = null;
+  try { motorChar = await (await server.getPrimaryService(SVC_MOV)).getCharacteristic(CH_MOT); } catch (_) {}
+  motorEnabled(!!motorChar, motorChar ? 'Prueba patrones de vibración.' : 'Este programa del clip no controla el motor: sube de nuevo heatguard_demo.');
   ledEnabled(!!ledChar, ledChar ? 'Elige un color: el LED del clip cambia al instante.' : 'Este programa del clip no tiene control del LED: sube de nuevo heatguard_demo.');
   setStatus('on', `Conectado · ${device.name || 'HeatGuard Clip'}`);
   $('btnConnect').textContent = 'Desconectar';
@@ -369,7 +422,7 @@ async function onDisconnected() {
     await new Promise((r) => setTimeout(r, 1000 + i * 1000));
     try { await setupGatt(); return; } catch (_) {}
   }
-  if (mode === 'ble') { mode = 'off'; ledChar = null; ledEnabled(false, 'Conecta el clip para cambiar el color.'); setStatus('', 'Desconectado'); $('btnConnect').textContent = 'Conectar clip'; }
+  if (mode === 'ble') { mode = 'off'; motorChar = null; motorEnabled(false, 'Conecta el clip para probar el motor.'); ledChar = null; ledEnabled(false, 'Conecta el clip para cambiar el color.'); setStatus('', 'Desconectado'); $('btnConnect').textContent = 'Conectar clip'; }
 }
 async function connect() {
   if (!navigator.bluetooth) {
@@ -400,7 +453,7 @@ async function connect() {
 }
 $('btnConnect').addEventListener('click', () => {
   if (mode === 'ble' && device?.gatt.connected) {
-    manualDisconnect = true; mode = 'off'; ledChar = null; ledEnabled(false, 'Conecta el clip para cambiar el color.'); device.gatt.disconnect();
+    manualDisconnect = true; mode = 'off'; motorClear(); if (motorChar) motorSend(0, 0); motorChar = null; motorEnabled(false, 'Conecta el clip para probar el motor.'); ledChar = null; ledEnabled(false, 'Conecta el clip para cambiar el color.'); device.gatt.disconnect();
     setStatus('', 'Desconectado'); $('btnConnect').textContent = 'Conectar clip';
   } else connect();
 });
@@ -411,6 +464,7 @@ function stopDemo() {
   clearInterval(demoTimer); demoTimer = null; mode = 'off';
   $('btnDemo').textContent = 'Modo demo';
   ledEnabled(false, 'Conecta el clip para cambiar el color.');
+  motorClear(); motorEnabled(false, 'Conecta el clip para probar el motor.');
   setStatus('', 'Desconectado'); notice('', '');
 }
 function startDemo() {
@@ -420,6 +474,7 @@ function startDemo() {
   $('btnDemo').textContent = 'Salir del demo'; $('btnConnect').textContent = 'Conectar clip';
   setStatus('sim', 'Modo demo');
   ledChar = null; ledEnabled(true, 'Modo demo: solo cambia la vista previa, no el LED real.');
+  motorChar = null; motorEnabled(true, 'Modo demo: solo se anima el ícono, el motor real no vibra.');
   notice('sim', '<b>Modo demo:</b> los datos son simulados, no vienen del clip.');
   let t = 0, steps = 0, rumbo = 20, temp = 26.2, hum = 60;
   showBat(78);
@@ -472,6 +527,57 @@ document.querySelectorAll('.swatch').forEach((b) => b.addEventListener('click', 
 $('ledColor').addEventListener('input', (e) => setLed(e.target.value));
 $('ledBright').addEventListener('input', () => setLed(ledHex));
 $('ledOff').addEventListener('click', () => setLed('#000000'));
+
+// ---------- botón ----------
+function showButton(pressed, evt, count) {
+  $('btnDot').classList.toggle('on', !!pressed);
+  $('btnDot').textContent = pressed ? 'PRESIONADO' : 'SUELTO';
+  if (btnLastCount === null) { btnLastCount = count; return; }   // primera lectura: solo sincroniza
+  if (count !== btnLastCount) {
+    btnLastCount = count;
+    const hora = new Date().toLocaleTimeString('es-CL');
+    if (evt === 2) { btnLongN++; $('btnLong').textContent = btnLongN; $('btnLast').textContent = `Hidratación · ${hora}`; }
+    else { btnShortN++; $('btnShort').textContent = btnShortN; $('btnLast').textContent = `Corta · ${hora}`; }
+  }
+}
+
+// ---------- motor ----------
+function motorEnabled(on, hint) {
+  $('motorControls').classList.toggle('disabled', !on);
+  $('motorHint').textContent = hint;
+  if (!on) motorUi(false);
+}
+function motorUi(on) {
+  $('motorIcon').classList.toggle('on', on);
+  if (!on) $('motorCont').classList.remove('active');
+}
+function motorPow() { return Math.round(parseInt($('motorPow').value, 10) * 2.55); }
+async function motorSend(intensity, decimas) {
+  motorUi(intensity > 0);
+  if (!motorChar) return;                              // modo demo: solo la animación
+  try { await motorChar.writeValue(new Uint8Array([intensity, decimas])); } catch (_) {}
+}
+function motorClear() { motorTimers.forEach(clearTimeout); motorTimers = []; }
+function motorLater(ms, fn) { motorTimers.push(setTimeout(fn, ms)); }
+$('motor1').addEventListener('click', () => {
+  motorClear(); motorSend(motorPow(), 10);
+  motorLater(1000, () => motorUi(false));
+});
+$('motor3').addEventListener('click', () => {
+  motorClear();
+  for (let i = 0; i < 3; i++) {
+    motorLater(i * 600, () => motorSend(motorPow(), 3));
+    motorLater(i * 600 + 300, () => motorUi(false));
+  }
+});
+$('motorCont').addEventListener('click', () => {
+  motorClear();
+  const on = !$('motorCont').classList.contains('active');
+  motorSend(on ? motorPow() : 0, 0);
+  $('motorCont').classList.toggle('active', on);
+});
+$('motorPow').addEventListener('input', () => { if ($('motorCont').classList.contains('active')) motorSend(motorPow(), 0); });
+$('motorStop').addEventListener('click', () => { motorClear(); motorSend(0, 0); });
 
 drawPath();
 if (!navigator.bluetooth) notice('err', 'Este navegador no tiene Bluetooth web. Usa <b>Google Chrome</b> o <b>Edge</b> y abre la página desde <code>localhost</code> (con el script <code>demo_ble.sh</code>). Mientras tanto puedes probar el <b>Modo demo</b>.');

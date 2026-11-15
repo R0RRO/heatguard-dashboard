@@ -17,6 +17,16 @@ separadas del dashboard web. Nada de esta carpeta se publica con el sitio.
 | `firmware/ble_temp` | Temperatura, humedad y movimiento por Bluetooth, para ver con nRF Connect. |
 | `firmware/diagnostico_i2c`, `buscar_sensores`, `i2c_manual` | Diagnóstico del bus I2C. |
 
+## Firmware del clip
+
+El programa del prototipo está en `firmware/heatguard_clip`, en la raíz del repositorio (ver
+`firmware/README.md`). Es compatible con la mini app de esta carpeta, así que basta con ese.
+`firmware/heatguard_demo` de esta carpeta es la versión anterior, solo para pruebas.
+
+```bash
+./panel_pruebas/subir_xiao.sh             # sube firmware/heatguard_clip
+```
+
 ## Uso
 
 ```bash
@@ -31,7 +41,8 @@ Al encender, dejar el clip quieto 2 segundos (calibra el giroscopio).
 
 - I2C: SDA en D4 y **SCL en D8** (D5 quedó en corto con GND y no se usa).
 - LED de estado RGB, cátodo común: **rojo en D6**, verde en D3, **azul en D2** (cableado al revés del mapa original; corregido en el firmware).
-- LED de batería en D10, motor en D7, botón de hidratación en D0, divisor de batería en D1.
+- LED de batería bicolor: rojo en D9, azul en D10. Al encender muestra 3 s el nivel: 0-20 % rojo parpadeante, 20-50 % rojo, 50-80 % azul parpadeante, 80 % o más azul.
+- Motor en D7 (vía 2N2222), botón de hidratación en D0 a GND (mantener 1 s = hidratación), divisor de batería en D1.
 
 ## Limitaciones
 

@@ -1,49 +1,44 @@
 import { Save, RotateCcw } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { DEFAULT_THRESHOLDS } from '../lib/risk';
+import { DEFAULT_THRESHOLDS, STATUS } from '../lib/risk';
+
+function Slider({ label, value, unit, min, max, step = 1, onChange, hint, accent = 'accent-orange-500', color }) {
+  return (
+    <div>
+      <div className="flex justify-between text-sm">        <label className="font-semibold text-ink">{label}</label><b style={color ? { color } : undefined} className="text-ink-2">{value}{unit}</b></div>
+      <input type="range" min={min} max={max} step={step} value={value} onChange={(e) => onChange(+e.target.value)} className={`w-full ${accent}`} />
+      {hint && <p className="text-xs text-slate-500 mt-1">{hint}</p>}
+    </div>
+  );
+}
 
 export default function Settings() {
-  const { thresholds, setThresholds } = useApp();
-  const set = (patch) => setThresholds((t) => {
-    const next = { ...t, ...patch };
-    if (next.attention >= next.alert) next.attention = next.alert - 5;
-    return next;
-  });
+  const { thresholds: th, setThresholds } = useApp();
+  const set = (patch) => setThresholds((t) => ({ ...t, ...patch }));
 
   return (
     <div className="page-layout max-w-3xl">
       <div>
-        <h1 className="text-2xl font-extrabold text-ink">Umbrales de riesgo</h1>
-        <p className="text-sm text-slate-500">Define cuándo el clip cambia de verde a azul (atención) y a rojo (riesgo alto). Se guardan en este navegador.</p>
+        <h1 className="text-2xl font-extrabold text-ink">Pausas de hidratación y descanso</h1>
       </div>
 
       <div className="card p-5 space-y-6">
-        <div>
-          <div className="flex justify-between text-sm"><label className="font-semibold text-ink">Umbral de atención (azul)</label><b className="text-blue-600">{thresholds.attention}</b></div>
-          <input type="range" min="10" max="80" value={thresholds.attention} onChange={(e) => set({ attention: +e.target.value })} className="w-full accent-blue-600" />
-        </div>
-        <div>
-          <div className="flex justify-between text-sm"><label className="font-semibold text-ink">Umbral de riesgo alto (rojo)</label><b className="text-red-600">{thresholds.alert}</b></div>
-          <input type="range" min="30" max="95" value={thresholds.alert} onChange={(e) => set({ alert: +e.target.value })} className="w-full accent-red-600" />
-        </div>
+        <Slider label="Límite de exposición (100 %)" value={th.loadLimit} unit=" min-eq." min={30} max={240} step={10} onChange={(v) => set({ loadLimit: v })} />
+        <Slider label="Cansancio (amarillo) desde" value={th.tiredPct} unit=" %" min={40} max={95} step={5} color={STATUS.cansancio.hex} accent="accent-yellow-500" onChange={(v) => set({ tiredPct: v })} />
         <div className="h-3 rounded-full overflow-hidden flex">
-          <div className="bg-green-500" style={{ width: `${thresholds.attention}%` }} />
-          <div className="bg-blue-500" style={{ width: `${thresholds.alert - thresholds.attention}%` }} />
-          <div className="bg-red-500 flex-1" />
+          <div style={{ width: `${th.tiredPct}%`, background: STATUS.normal.hex }} />
+          <div style={{ width: `${100 - th.tiredPct}%`, background: STATUS.cansancio.hex }} />
+          <div style={{ width: '8%', background: STATUS.descanso.hex }} />
         </div>
-        <div>
-          <div className="flex justify-between text-sm"><label className="font-semibold text-ink">Alerta por falta de movimiento</label><b className="text-ink-2">{thresholds.stillMinutes} min</b></div>
-          <input type="range" min="3" max="20" value={thresholds.stillMinutes} onChange={(e) => set({ stillMinutes: +e.target.value })} className="w-full accent-orange-500" />
-          <p className="text-xs text-slate-500 mt-1">Minutos sin movimiento (acelerómetro) en zona de trabajo antes de alertar. Las caídas alertan de inmediato.</p>
-        </div>
-        <div>
-          <div className="flex justify-between text-sm"><label className="font-semibold text-ink">Recordatorio de hidratación</label><b className="text-cyan-700">cada {thresholds.hydrationMinutes} min</b></div>
-          <input type="range" min="15" max="60" step="5" value={thresholds.hydrationMinutes} onChange={(e) => set({ hydrationMinutes: +e.target.value })} className="w-full accent-cyan-600" />
-          <p className="text-xs text-slate-500 mt-1">Tiempo máximo entre registros del botón del clip antes de que vibre y avise al trabajador. Si pasan 15 min más sin registro, se abre una alerta de hidratación. Valor de demostración: ajústalo al protocolo de la obra (TGBH, DS 594).</p>
-        </div>
+        <Slider label="Duración de la pausa" value={th.pauseMinutes} unit=" min" min={5} max={30} onChange={(v) => set({ pauseMinutes: v })} color={STATUS.pausa.hex} accent="accent-blue-600" />
+        <Slider label="Alertar si no se comienza o no se cierra la pausa" value={th.confirmMinutes} unit=" min" min={2} max={15} onChange={(v) => set({ confirmMinutes: v })} />
         <label className="flex items-start gap-3 cursor-pointer">
-          <input type="checkbox" className="mt-1 accent-orange-500" checked={thresholds.autoPause} onChange={(e) => set({ autoPause: e.target.checked })} />
-          <span className="text-sm"><b className="text-ink">Pausa automática recomendada</b><br /><span className="text-slate-500">En la simulación, los trabajadores en riesgo alto tienden a tomar una pausa aunque nadie la ordene.</span></span>
+          <input type="checkbox" className="mt-1 accent-orange-500" checked={th.autoPause} onChange={(e) => set({ autoPause: e.target.checked })} />
+          <span className="text-sm"><b className="text-ink">Pedir la pausa al llegar al 100 %</b><br /><span className="text-slate-500">El clip pasa a rojo y vibra 5 veces cada 40 s. Si está apagado, solo el supervisor puede pedir pausas.</span></span>
+        </label>
+        <label className="flex items-start gap-3 cursor-pointer">
+          <input type="checkbox" className="mt-1 accent-orange-500" checked={th.simResponds !== false} onChange={(e) => set({ simResponds: e.target.checked })} />
+          <span className="text-sm"><b className="text-ink">Los trabajadores simulados presionan el botón</b><br /><span className="text-slate-500">En la simulación responden con el botón cuando el clip lo pide (comenzar o cerrar la pausa). Si está apagado, nada cambia hasta que uses «Simular botón» en el detalle de cada trabajador. No afecta al clip real.</span></span>
         </label>
         <div className="flex gap-2">
           <button className="btn-secondary" onClick={() => setThresholds(DEFAULT_THRESHOLDS)}><RotateCcw className="w-4 h-4" />Restablecer</button>
@@ -51,10 +46,6 @@ export default function Settings() {
         </div>
       </div>
 
-      <div className="card p-5 text-sm text-slate-600 space-y-2">
-        <h2 className="section-heading">¿Cómo se calcula el riesgo?</h2>
-        <p>El puntaje (0–100) combina la <b>temperatura ambiente</b> (ajustada por humedad) 50%, la <b>exposición acumulada</b> 30% y la <b>actividad</b> 20% (acelerómetro). Además, el acelerómetro detecta caídas y falta de movimiento prolongada. El botón de hidratación y las pausas no modifican el puntaje: el clip mide el ambiente, no al trabajador. Es un modelo de demostración: reemplázalo por el algoritmo real del clip en <code>src/lib/risk.js</code>.</p>
-      </div>
     </div>
   );
 }

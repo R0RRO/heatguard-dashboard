@@ -4,7 +4,7 @@ import { useApp } from '../context/AppContext';
 import AlertItem from '../components/AlertItem';
 
 const TABS = [['activa', 'Activas'], ['reconocida', 'Reconocidas'], ['resuelta', 'Resueltas'], ['all', 'Todas']];
-const KINDS = [['all', 'Todo'], ['salud', 'Salud'], ['seguridad', 'Seguridad'], ['hidratacion', 'Hidratación'], ['dispositivo', 'Dispositivo']];
+const KINDS = [['all', 'Todo'], ['descanso', 'Toca descanso'], ['pausa', 'Pausa cumplida'], ['dispositivo', 'Dispositivo']];
 
 export default function Alerts() {
   const { alerts } = useApp();
@@ -17,7 +17,6 @@ export default function Alerts() {
     <div className="page-layout">
       <div>
         <h1 className="text-2xl font-extrabold text-ink">Alertas</h1>
-        <p className="text-sm text-slate-500">Reconoce, ordena pausas y cierra alertas de salud térmica y de dispositivos.</p>
       </div>
       <div className="flex gap-2 flex-wrap items-center">
         {TABS.map(([k, label]) => (

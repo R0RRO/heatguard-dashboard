@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { RotateCcw, Layers, Eye, Tag, Cable, BellRing, MousePointerClick, Vibrate, BatteryLow, ArrowRight, Info } from 'lucide-react';
+import { RotateCcw, Layers, Eye, Tag, Cable, MousePointerClick, Vibrate, BatteryLow, ArrowRight } from 'lucide-react';
 import ClipViewer from '../components/ClipViewer';
 import { NETS } from '../lib/wiring';
-import { HOTSPOTS, LED_STATES, SIGNALS, SPECS, COMPONENTS, MOUNTS } from '../data/product';
+import { HOTSPOTS, LED_STATES, SPECS, COMPONENTS, MOUNTS } from '../data/product';
 
 function Toggle({ on, onClick, icon, label }) {
   const IconEl = icon;
@@ -23,9 +23,8 @@ export default function Product() {
   const [accessory, setAccessory] = useState('none');
   const [autoRotate, setAutoRotate] = useState(true);
   const [wires, setWires] = useState(false);
-  const [reminder, setReminder] = useState(false);
   const [pressKey, setPressKey] = useState(0);
-  const [drinks, setDrinks] = useState(0);
+  const [pauses, setPauses] = useState(0);
   const [labels, setLabels] = useState(true);
   const [selected, setSelected] = useState(null);
   const [resetKey, setResetKey] = useState(0);
@@ -36,15 +35,15 @@ export default function Product() {
     const h = HOTSPOTS.find((x) => x.id === id);
     if (h?.interior) setInterior(true);
   };
-  // Botón de hidratación (simulado): registra la toma, apaga el recordatorio y el clip confirma
-  const pressButton = () => {
-    setPressKey((n) => n + 1);
-    setDrinks((n) => n + 1);
-    setReminder(false);
-  };
   const setAlert = (k) => {
     setLedState(k);
-    setVibrate(k === 'alerta');
+    setVibrate(LED_STATES[k].vibrate);
+  };
+  // Botón mantenido 2 s (simulado): en pausa → la termina; si no → la comienza
+  const pressButton = () => {
+    setPressKey((n) => n + 1);
+    if (ledState === 'pausa' || ledState === 'finPausa') { setAlert('normal'); setPauses((n) => n + 1); }
+    else setAlert('pausa');
   };
 
   return (
@@ -54,7 +53,7 @@ export default function Product() {
           <p className="text-xs font-bold tracking-widest text-heat-600 uppercase">Prototipo digital · v2</p>
           <h1 className="text-3xl font-extrabold text-ink">HeatGuard <span className="text-heat-500">Clip</span></h1>
           <p className="text-sm text-slate-500 max-w-2xl mt-1">
-            Dispositivo que se fija al casco o al chaleco y mide la temperatura, la humedad y el movimiento alrededor del trabajador. Avisa con luz y vibración, registra la hidratación con un botón y envía los datos por Bluetooth a este panel.
+            Dispositivo que se fija al casco o al chaleco y mide la temperatura, la humedad y el movimiento alrededor del trabajador. Acumula la exposición al calor y al movimiento, pide pausas de hidratación y descanso con luz y vibración, y el trabajador las comienza y termina con un botón. Envía los datos por Bluetooth a este panel.
           </p>
         </div>
         <span className="badge bg-surface-2 text-ink-2 border-line-2">Modelo 3D real · carcasa 80 × 40 × 17 mm</span>
@@ -72,7 +71,7 @@ export default function Product() {
 
           <div className="relative h-[460px] sm:h-[540px] bg-gradient-to-b from-surface-2 to-surface">
             <ClipViewer
-              ledState={ledState} batteryLow={batteryLow} vibrate={vibrate} explode={explode} interior={interior} wires={wires} reminder={reminder} pressKey={pressKey}
+              ledState={ledState} batteryLow={batteryLow} vibrate={vibrate} explode={explode} interior={interior} wires={wires} reminder={false} pressKey={pressKey}
               accessory={accessory} autoRotate={autoRotate} showLabels={labels} selected={selected}
               onSelect={select} resetKey={resetKey}
             />
@@ -111,7 +110,7 @@ export default function Product() {
         <div className="space-y-6">
           <div className="card p-4 space-y-3">
             <h2 className="section-heading">Simular el clip</h2>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-3 gap-2">
               {Object.entries(LED_STATES).map(([k, s]) => (
                 <button key={k} onClick={() => setAlert(k)}
                   className={`rounded-lg border px-2 py-2 text-xs font-semibold cursor-pointer transition-colors ${ledState === k ? 'text-white border-transparent' : 'bg-surface text-ink border-line-2 hover:bg-surface-2'}`}
@@ -129,16 +128,16 @@ export default function Product() {
           </div>
 
           <div className="card p-4 space-y-3">
-            <h2 className="section-heading"><MousePointerClick className="w-4 h-4 text-ink-2" />Botón de hidratación</h2>
-            <p className="text-sm text-slate-600">Cuando pasa el intervalo configurado sin registro, el clip recuerda con {SIGNALS.recordatorio.text.toLowerCase()} El trabajador toma agua y mantiene presionado el botón ~1 s.</p>
+            <h2 className="section-heading"><MousePointerClick className="w-4 h-4 text-ink-2" />Botón de pausa</h2>
+            <p className="text-sm text-slate-600">Cuando toca descanso, el clip queda en rojo y vibra 5 veces cada 40 s. El trabajador mantiene el botón 2 s para comenzar la pausa de hidratación y descanso (azul fijo) y otros 2 s para terminarla.</p>
             <div className="flex gap-2 flex-wrap">
-              <Toggle on={reminder} onClick={() => setReminder(!reminder)} icon={BellRing} label="Activar recordatorio" />
-              <button onClick={pressButton} className="btn-primary btn-sm inline-flex items-center gap-1.5"><MousePointerClick className="w-3.5 h-3.5" />Presionar botón</button>
+              <button onClick={() => setAlert('descanso')} className="btn-secondary btn-sm">Toca descanso</button>
+              <button onClick={pressButton} className="btn-primary btn-sm inline-flex items-center gap-1.5"><MousePointerClick className="w-3.5 h-3.5" />Mantener botón 2 s</button>
+              {ledState === 'pausa' && <button onClick={() => setAlert('finPausa')} className="btn-secondary btn-sm">Cumplir el tiempo</button>}
             </div>
             <p className="text-xs text-slate-500" aria-live="polite">
-              {drinks === 0 ? 'El botón está en la pared superior del clip (punto 11).' : `${SIGNALS.registro.text} Registros en esta sesión: ${drinks}.`}
+              {ledState === 'pausa' ? 'En pausa: el botón la termina.' : ledState === 'finPausa' ? 'Pausa cumplida: el botón la cierra y vuelve al trabajo.' : `El botón está en la pared superior del clip (punto 11). Pausas en esta sesión: ${pauses}.`}
             </p>
-            <p className="text-xs text-slate-500">Es un registro autodeclarado: no mide hidratación ni reinicia el riesgo térmico ni las alertas.</p>
           </div>
 
           <div className="card p-4 space-y-2">
@@ -158,9 +157,7 @@ export default function Product() {
                 <p className="font-semibold text-ink">{hotspot.title}</p>
                 <p className="text-slate-600 mt-0.5">{hotspot.desc}</p>
               </div>
-            ) : (
-              <p className="text-xs text-slate-500 flex items-center gap-1.5"><Info className="w-3.5 h-3.5" />Elige un punto para ver su función.</p>
-            )}
+            ) : null}
           </div>
         </div>
       </div>
@@ -202,15 +199,15 @@ export default function Product() {
         <div className="space-y-6">
           <div className="card p-4 space-y-2">
             <h2 className="section-heading">Qué ve la plataforma</h2>
-            <p className="text-sm text-slate-600">Cada clip envía por Bluetooth, de forma periódica: temperatura y humedad ambiente, nivel de actividad y pasos, tiempo de exposición, estado de riesgo y nivel de batería. Con eso el prevencionista ve en este panel quién necesita una pausa.</p>
+            <p className="text-sm text-slate-600">Cada clip envía por Bluetooth, de forma periódica: temperatura del aire y humedad relativa, sensación térmica, nivel de movimiento, exposición acumulada, estado de la pausa y nivel de batería (contrato de datos v2). Con eso el prevencionista ve en este panel quién tiene que descansar y quién está en pausa.</p>
             <Link to="/workers" className="back-link">Ver trabajadores en vivo <ArrowRight className="w-3 h-3" /></Link>
           </div>
           <div className="card p-4 space-y-2 border-heat-200">
             <h2 className="section-heading">Alcance y límites</h2>
             <ul className="text-sm text-slate-600 space-y-1.5 list-disc pl-5">
               <li>Mide el <b>ambiente</b> que rodea al trabajador; no mide su fisiología (pulso o temperatura de piel).</li>
-              <li>No reemplaza la medición normada de carga calórica (TGBH, DS 594). Los umbrales de alerta son configurables.</li>
-              <li>Datos de este panel: simulados. El modelo 3D es el diseño real de la carcasa.</li>
+              <li>La sensación térmica (Heat Index del NWS) es un indicador auxiliar para condiciones de sombra. No es WBGT/TGBH (ISO 7243) ni reemplaza la evaluación de un prevencionista. Los umbrales de alerta son configurables.</li>
+              <li>No entrega diagnóstico médico ni predice golpes de calor. No cuenta con certificación ISO.</li>
             </ul>
           </div>
         </div>

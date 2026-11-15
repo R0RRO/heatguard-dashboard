@@ -175,14 +175,15 @@ export function Sparkline({ values, color = '#f97316', width = 90, height = 26 }
   );
 }
 
-export function RiskBar({ score, status }) {
-  const colors = { alerta: 'bg-red-500', atencion: 'bg-blue-500', normal: 'bg-green-500' };
+// Exposición acumulada (% del límite) con el color del estado
+export function LoadBar({ load, status }) {
+  const colors = { normal: 'bg-green-500', cansancio: 'bg-yellow-500', descanso: 'bg-red-500', pausa: 'bg-blue-500', finPausa: 'bg-indigo-500', offline: 'bg-slate-400' };
   return (
     <div className="flex items-center gap-2 min-w-[110px]">
       <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
-        <div className={`h-full rounded-full transition-all duration-500 ${colors[status]}`} style={{ width: `${Math.min(100, score)}%` }} />
+        <div className={`h-full rounded-full transition-all duration-500 ${colors[status] || 'bg-slate-400'}`} style={{ width: `${Math.min(100, load)}%` }} />
       </div>
-      <span className="text-xs font-semibold text-slate-600 w-7 text-right">{Math.round(score)}</span>
+      <span className="text-xs font-semibold text-slate-600 w-9 text-right">{Math.round(load)}%</span>
     </div>
   );
 }

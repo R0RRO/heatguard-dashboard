@@ -17,7 +17,7 @@ export const NETS = {
   led2_r: { label: 'D10 · LED batería R (220 Ω)', color: '#fb923c' },
   motor: { label: 'D7 · motor (1 kΩ + 2N2222)', color: '#14b8a6' },
   coax: { label: 'Coaxial antena → u.FL', color: '#6b7280' },
-  btn: { label: 'D0 · botón de hidratación (a GND)', color: '#0ea5e9' },
+  btn: { label: 'D0 · botón de pausa (a GND)', color: '#0ea5e9' },
   sense: { label: 'D1 · medición de batería (2 × 220 kΩ)', color: '#d97706' },
 };
 

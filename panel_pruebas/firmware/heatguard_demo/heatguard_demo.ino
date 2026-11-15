@@ -11,6 +11,8 @@
 //   Nordic UART (texto para nRF Connect): "26.1 C | 61.4 % | bat 3.96 V"
 //   Movimiento 7a1e0001-...: 0004 paquete binario de 12 bytes cada 100 ms (ver struct Paquete)
 //                            0005 color del LED RGB (escritura, 3 bytes R G B)
+//                            0006 motor de vibración (escritura: intensidad, duración en décimas de s)
+//                            0007 botón (notifica: presionado, último evento, contador)
 #include <Wire.h>
 // SCL movido de D5 a D8: el pin D5 de esta placa quedó en corto con GND (no usarlo).
 const int SCL_PIN = D8;
@@ -32,6 +34,18 @@ const uint32_t PASO_MIN_MS = 300;
 #define UUID_MOV_SERV   "7a1e0001-4865-6174-4775-617264436c70"
 #define UUID_PAQ_CHAR   "7a1e0004-4865-6174-4775-617264436c70"
 #define UUID_LED_CHAR   "7a1e0005-4865-6174-4775-617264436c70"   // escribir 3 bytes: R, G, B (0-255)
+#define UUID_MOT_CHAR   "7a1e0006-4865-6174-4775-617264436c70"   // escribir 2 bytes: intensidad (0-255), duración en décimas de s (0 = sin límite)
+
+// Motor de vibración: D7 → 1 kΩ → base del 2N2222 (colector al − del motor, + del motor a 3V3, 1N4148 en paralelo)
+const int MOTOR = D7;
+
+// LED de batería bicolor: rojo en D9, azul en D10 (cada uno con su resistencia)
+const int BAT_R = D9, BAT_B = D10;
+
+// Botón de hidratación: D0 a GND (pull-up interno). Corto = pulsación; mantener 1 s = hidratación
+const int BOTON = D0;
+#define UUID_BTN_CHAR   "7a1e0007-4865-6174-4775-617264436c70"   // notifica 4 bytes: presionado, último evento (1 corto, 2 largo), contador (uint16)
+uint32_t motorHasta = 0;   // millis() en que se apaga; 0 = sin límite
 
 // LED de estado RGB de cátodo común. En este prototipo el rojo quedó cableado en D6 y el azul en D2
 // (al revés del mapa original), así que se corrige aquí: R = D6, G = D3, B = D2.
@@ -45,7 +59,7 @@ struct __attribute__((packed)) Paquete {
   uint16_t mag1000;   // módulo de la aceleración en milésimas de g
 };
 
-BLECharacteristic *cTemp, *cHum, *cBat, *cTexto, *cPaq, *cLed;
+BLECharacteristic *cTemp, *cHum, *cBat, *cTexto, *cPaq, *cLed, *cMot, *cBtn;
 bool conectado = false;
 
 // ---------- estado ----------
@@ -74,12 +88,47 @@ void ponerColor(uint8_t r, uint8_t g, uint8_t b) {
   analogWrite(LED_B, b);
 }
 
+// Al encender, 3 segundos con el nivel de batería en el LED de batería (D9 rojo, D10 azul):
+//   0-20 %: rojo parpadeante · 20-50 %: rojo · 50-80 %: azul parpadeante · 80 % o más: azul
+void indicarBateria() {
+  pinMode(BAT_R, OUTPUT); pinMode(BAT_B, OUTPUT);
+  digitalWrite(BAT_R, LOW); digitalWrite(BAT_B, LOW);
+  delay(50);                                   // que se estabilice el voltaje
+  float v = leerBateria();
+  uint8_t pct = bateriaPct(v);
+  Serial.printf("Bateria al encender: %.2f V (%u %%)\n", v, pct);
+  int pin = (pct < 50) ? BAT_R : BAT_B;
+  bool parpadea = (pct < 20) || (pct >= 50 && pct < 80);
+  if (parpadea) {
+    for (int i = 0; i < 6; i++) { digitalWrite(pin, HIGH); delay(250); digitalWrite(pin, LOW); delay(250); }
+  } else {
+    digitalWrite(pin, HIGH); delay(3000); digitalWrite(pin, LOW);
+  }
+}
+
 class LedCallbacks : public BLECharacteristicCallbacks {
   void onWrite(BLECharacteristic *c) override {
     uint8_t *d = c->getData();
     if (c->getLength() >= 3) {
       ponerColor(d[0], d[1], d[2]);
       Serial.printf("LED: %u %u %u\n", d[0], d[1], d[2]);
+    }
+  }
+};
+
+void vibrar(uint8_t intensidad, uint32_t ms) {
+  analogWrite(MOTOR, intensidad);
+  motorHasta = (intensidad && ms) ? millis() + ms : 0;
+}
+
+class MotorCallbacks : public BLECharacteristicCallbacks {
+  void onWrite(BLECharacteristic *c) override {
+    uint8_t *d = c->getData();
+    size_t n = c->getLength();
+    if (n >= 1) {
+      uint32_t ms = (n >= 2) ? d[1] * 100UL : 0;
+      vibrar(d[0], ms);
+      Serial.printf("Motor: %u%s\n", d[0], ms ? "" : " (sin limite)");
     }
   }
 };
@@ -164,6 +213,16 @@ bool leerHTU(uint8_t cmd, uint16_t &raw) {
   return true;
 }
 
+// Porcentaje aproximado según el voltaje de una LiPo en reposo (curva típica, no medida en esta batería)
+uint8_t bateriaPct(float v) {
+  const float V[] = {3.30, 3.45, 3.68, 3.74, 3.77, 3.79, 3.82, 3.87, 3.92, 4.00, 4.10, 4.20};
+  const float P[] = {0,    5,    10,   20,   30,   40,   50,   60,   70,   80,   90,   100};
+  if (v <= V[0]) return 0;
+  for (int i = 1; i < 12; i++)
+    if (v <= V[i]) return (uint8_t)lroundf(P[i - 1] + (P[i] - P[i - 1]) * (v - V[i - 1]) / (V[i] - V[i - 1]));
+  return 100;
+}
+
 float leerBateria() {
   uint32_t mv = 0;
   for (int i = 0; i < 16; i++) mv += analogReadMilliVolts(D1);
@@ -173,7 +232,7 @@ float leerBateria() {
 void publicarAmbiente(bool ok, float t, float h) {
   if (ok) { ultT = t; ultH = h; }
   float vbat = leerBateria();
-  uint8_t pct = constrain((int)((vbat - 3.3) / (4.2 - 3.3) * 100), 0, 100);
+  uint8_t pct = bateriaPct(vbat);
   char texto[64];
   if (ok) snprintf(texto, sizeof texto, "%.1f C | %.1f %% | bat %.2f V", t, h, vbat);
   else snprintf(texto, sizeof texto, "sensor sin respuesta | bat %.2f V", vbat);
@@ -237,11 +296,16 @@ BLECharacteristic *crear(BLEService *s, BLEUUID uuid) {
 
 void setup() {
   Serial.begin(115200);
-  // Prueba del LED al encender: rojo, verde, azul y apagado
+  // Prueba del LED de estado al encender: rojo, verde, azul y apagado
   ponerColor(255, 0, 0); delay(300);
   ponerColor(0, 255, 0); delay(300);
   ponerColor(0, 0, 255); delay(300);
   ponerColor(0, 0, 0);
+  indicarBateria();
+  pinMode(BOTON, INPUT_PULLUP);
+  // Prueba del motor al encender: una vibración corta
+  pinMode(MOTOR, OUTPUT); digitalWrite(MOTOR, LOW);
+  analogWrite(MOTOR, 255); delay(250); analogWrite(MOTOR, 0);
   Wire.begin(D4, SCL_PIN);
   Wire.setClock(100000);   // 100 kHz: más tolerante a cables largos y pull-ups débiles
 
@@ -271,6 +335,9 @@ void setup() {
   cLed = mov->createCharacteristic(BLEUUID(UUID_LED_CHAR),
            BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_WRITE_NR);
   cLed->setCallbacks(new LedCallbacks());
+  cMot = mov->createCharacteristic(BLEUUID(UUID_MOT_CHAR), BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_WRITE_NR);
+  cMot->setCallbacks(new MotorCallbacks());
+  cBtn = crear(mov, BLEUUID(UUID_BTN_CHAR));
   uint8_t apagado[3] = {0, 0, 0};
   cLed->setValue(apagado, 3);
   mov->start();
@@ -283,8 +350,43 @@ void setup() {
   tImu = millis();
 }
 
+// ---------- botón ----------
+uint16_t eventos = 0;
+uint8_t ultimoEvento = 0;
+bool presionado = false, largoAvisado = false;
+uint32_t tCambio = 0, tPresion = 0;
+
+void publicarBoton() {
+  uint8_t d[4] = {(uint8_t)presionado, ultimoEvento, (uint8_t)(eventos & 0xFF), (uint8_t)(eventos >> 8)};
+  cBtn->setValue(d, 4);
+  if (conectado) cBtn->notify();
+}
+
+void tareaBoton(uint32_t ahora) {
+  bool p = digitalRead(BOTON) == LOW;
+  if (p != presionado && ahora - tCambio > 30) {          // antirrebote de 30 ms
+    tCambio = ahora;
+    presionado = p;
+    if (p) { tPresion = ahora; largoAvisado = false; vibrar(200, 60); }
+    else if (!largoAvisado) {
+      ultimoEvento = 1; eventos++;
+      Serial.println("Boton: pulsacion corta");
+    }
+    publicarBoton();
+  }
+  if (presionado && !largoAvisado && ahora - tPresion >= 1000) {   // mantener 1 s = hidratación
+    largoAvisado = true;
+    ultimoEvento = 2; eventos++;
+    vibrar(255, 400);
+    Serial.println("Boton: pulsacion larga (hidratacion)");
+    publicarBoton();
+  }
+}
+
 void loop() {
   uint32_t ahora = millis();
+  tareaBoton(ahora);
+  if (motorHasta && (int32_t)(ahora - motorHasta) >= 0) { analogWrite(MOTOR, 0); motorHasta = 0; }
 
   if (ahora - tImu >= PERIODO_IMU_MS) {
     float dt = (ahora - tImu) / 1000.0f;
