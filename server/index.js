@@ -355,8 +355,11 @@ async function api(req, res, url) {
         break;
       default: return json(res, 400, { error: 'Acción desconocida' });
     }
-    if (b.action === 'reset') for (const c of clientes) if (esMonitor(c.rol)) enviar(c, c.lite ? 'simlite' : 'simfull', c.lite ? simLite() : simCompleta());
-    else emitirSim();
+    if (b.action === 'reset') {
+      for (const c of clientes) if (esMonitor(c.rol)) enviar(c, c.lite ? 'simlite' : 'simfull', c.lite ? simLite() : simCompleta());
+    } else {
+      emitirSim();
+    }
     return json(res, 200, { ok: true });
   }
 
