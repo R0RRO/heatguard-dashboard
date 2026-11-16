@@ -71,27 +71,39 @@ export default function Workers() {
         <table className="w-full">
           <thead className="border-b border-line bg-surface-2/50">
             <tr>
-              <th className="th">Trabajador</th><th className="th">Zona</th><th className="th">T° del aire</th><th className="th">Humedad</th><th className="th">Sensación térmica (Heat Index)</th><th className="th">Movimiento</th>
-              <th className="th">Exposición acumulada</th><th className="th">Tendencia</th><th className="th">Pausas</th><th className="th">Estado</th><th className="th">Clip</th><th className="th" />
+              <th className="th-c">Trabajador</th><th className="th-c">Ambiente · sensación térmica (HI)</th><th className="th-c">Movimiento</th>
+              <th className="th-c">Exposición acumulada</th><th className="th-c">Estado</th><th className="th-c">Clip</th><th className="th-c" />
             </tr>
           </thead>
           <tbody>
             {list.map((w) => {
               const st = workerStatus(w);
+              const zone = ZONES.find((z) => z.id === w.zoneId).name;
               return (
                 <tr key={w.id} onClick={() => navigate(`/workers/${w.id}`)} className={liveIds.includes(w.id) ? 'live-row cursor-pointer' : 'border-b border-slate-50 hover:bg-heat-50/40 cursor-pointer'}>
-                  <td className="td"><p className="font-semibold text-ink">{w.name}</p><p className="text-xs text-slate-500">{w.trade} · {w.crew}</p>{liveIds.includes(w.id) && <SourceBadge source="clip" />}</td>
-                  <td className="td text-slate-600">{ZONES.find((z) => z.id === w.zoneId).name}</td>
-                  <td className="td">{w.env.t.toFixed(1)}°C</td>
-                  <td className="td">{Math.round(w.env.rh)}%</td>
-                  <td className="td"><div className="flex flex-col items-start gap-1"><span>{w.env.hi.toFixed(1)}°C</span><HeatIndexBadge hi={w.env.hi} /></div></td>
-                  <td className="td">{movDetail(w.activity * 100)}</td>
-                  <td className="td"><LoadBar load={w.load} status={st} /></td>
-                  <td className="td"><Sparkline values={w.history.slice(-30).map((p) => p.load)} color="#f97316" /></td>
-                  <td className="td"><div className="flex flex-col items-start gap-1"><span className="text-xs text-slate-600">{w.pausesToday} hoy</span>{!w.resting && <span className="text-xs text-slate-400">última hace {Math.max(0, clock - w.lastPauseEnd)} min</span>}</div></td>
-                  <td className="td"><div className="flex flex-col items-start gap-1"><StatusBadge status={st} pulse /><PauseBadge w={w} clock={clock} /></div></td>
-                  <td className="td"><BatteryPill level={w.battery} /></td>
-                  <td className="td">
+                  <td className="td-c">
+                    <p className="font-semibold text-ink">{w.name}</p>
+                    <p className="text-xs text-slate-500">{w.trade} · {w.crew}</p>
+                    <p className="text-xs text-slate-400">{zone}</p>
+                    {liveIds.includes(w.id) && <SourceBadge source="clip" />}
+                  </td>
+                  <td className="td-c">
+                    <p>{w.env.t.toFixed(1)} °C · {Math.round(w.env.rh)} %</p>
+                    <div className="flex items-center gap-1.5 mt-1 flex-wrap"><span className="text-xs text-slate-600">{w.env.hi.toFixed(1)} °C</span><HeatIndexBadge hi={w.env.hi} /></div>
+                  </td>
+                  <td className="td-c whitespace-nowrap">{movDetail(w.activity * 100)}</td>
+                  <td className="td-c">
+                    <LoadBar load={w.load} status={st} />
+                    <div className="mt-1"><Sparkline values={w.history.slice(-30).map((p) => p.load)} color="#f97316" width={110} height={18} /></div>
+                  </td>
+                  <td className="td-c">
+                    <div className="flex flex-col items-start gap-1">
+                      {(w.resting || w.pauseReq) && st !== 'offline' ? <PauseBadge w={w} clock={clock} /> : <StatusBadge status={st} pulse />}
+                      <span className="text-xs text-slate-500">{w.pausesToday} {w.pausesToday === 1 ? 'pausa' : 'pausas'} hoy{!w.resting && w.pausesToday > 0 ? ` · última hace ${Math.max(0, clock - w.lastPauseEnd)} min` : ''}</span>
+                    </div>
+                  </td>
+                  <td className="td-c"><BatteryPill level={w.battery} /></td>
+                  <td className="td-c">
                     {!w.resting && !w.pauseReq && w.status === 'cansancio' && (
                       <button className="btn-primary btn-sm" title="Solicitar pausa al clip" onClick={(e) => { e.stopPropagation(); orderPause(w.id, thresholds.pauseMinutes); }}><Pause className="w-3.5 h-3.5" />Pausa</button>
                     )}
