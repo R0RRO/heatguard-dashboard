@@ -9,6 +9,7 @@ import { clamp, loadRate, recoveryRate, computeStatus, mainReason, personalFacto
 import { heatIndexC } from './heatIndex.js';
 
 const HISTORY = 90;
+const DAY = 24 * 60; // minutos simulados por día
 const LOAD_MAX = 150; // tope de la exposición acumulada (%) mientras se espera que el trabajador acepte la pausa
 const rnd = (a, b) => a + Math.random() * (b - a);
 const noise = (s) => (Math.random() - 0.5) * 2 * s;
@@ -258,6 +259,18 @@ export function step(prev, th, heatOffset = 0, live = null) {
   });
 
   alerts = alerts.slice(0, 200);
+
+  // Cambio de día (00:00 del reloj simulado): los contadores «de hoy» parten de cero y los clips
+  // simulados amanecen cargados (se cargan de noche); la batería del clip real es la que informa el clip.
+  if (Math.floor(clock / DAY) !== Math.floor(prev.clock / DAY)) {
+    workers = workers.map((w, i) => ({
+      ...w, pausesToday: 0, peakLoad: w.load,
+      battery: w.source === 'clip' ? w.battery : 88 + ((i * 7) % 13),
+    }));
+    events = [];
+    alerts = alerts.filter((a) => a.status !== 'resuelta');
+  }
+
   const next = { ...prev, clock, workers, alerts, events, nextAlertId };
   next.siteHistory = [...prev.siteHistory, buildSiteSnapshot(next, heatOffset)].slice(-HISTORY);
   return { state: next, toasts: newToasts };

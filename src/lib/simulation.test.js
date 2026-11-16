@@ -188,3 +188,16 @@ test('cambiar altura y peso cambia el ritmo de la simulación', async () => {
   assert.ok(Math.abs(b.workers[0].load / a.workers[0].load - 1.2) < 0.01, `${b.workers[0].load} vs ${a.workers[0].load}`);
 });
 
+
+test('cambio de día: pausas de hoy, exposición máxima y registro parten de cero y los clips simulados se recargan', () => {
+  const th = DEFAULT_THRESHOLDS;
+  let s = createState(th, 0);
+  s = { ...s, clock: 24 * 60 - 2, workers: s.workers.map((w) => ({ ...w, pausesToday: 7, peakLoad: 99, battery: 0 })), events: [{ type: 'pausa-fin', clock: 1, workerId: 'w1' }] };
+  s = step(s, th, 0).state;                       // 23:59
+  assert.ok(s.workers.every((w) => w.pausesToday >= 7));
+  s = step(s, th, 0).state;                       // 00:00
+  assert.ok(s.workers.every((w) => w.pausesToday === 0));
+  assert.ok(s.workers.every((w) => w.peakLoad === w.load));
+  assert.ok(s.workers.every((w) => w.battery >= 88 && w.battery <= 100));
+  assert.equal(s.events.length, 0);
+});
