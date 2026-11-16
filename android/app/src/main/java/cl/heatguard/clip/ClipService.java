@@ -70,7 +70,8 @@ public class ClipService extends Service {
     private final ArrayDeque<byte[]> writes = new ArrayDeque<>();
     private boolean writing = false;
 
-    private String base, token, workerId;
+    private String base, token;
+    private volatile String workerId;
     private BluetoothAdapter adapter;
     private BluetoothGatt gatt;
     private BluetoothGattCharacteristic cmdChar;
@@ -360,6 +361,17 @@ public class ClipService extends Service {
             while (running) {
                 HttpURLConnection c = null;
                 try {
+                    // el clip asignado puede cambiar desde el panel: se consulta al conectar
+                    Api.Result me = Api.request(base, "GET", "/api/me", token, null);
+                    if (me.code == 401) { sessionExpired(); return; }
+                    if (me.ok() && me.body != null && me.body.optJSONObject("user") != null) {
+                        String id = me.body.getJSONObject("user").optString("workerId", "");
+                        if (!id.isEmpty() && !"null".equals(id) && !id.equals(workerId)) {
+                            workerId = id;
+                            getSharedPreferences("hg", MODE_PRIVATE).edit().putString("workerId", id).apply();
+                            profile = null;
+                        }
+                    }
                     String q = "?token=" + URLEncoder.encode(token, "UTF-8") + "&workerId=" + URLEncoder.encode(workerId, "UTF-8");
                     c = (HttpURLConnection) new URL(base + "/api/stream" + q).openConnection();
                     c.setConnectTimeout(10000);

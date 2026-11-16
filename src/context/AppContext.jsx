@@ -46,7 +46,10 @@ export function AppProvider({ children }) {
   const [session, setSession] = useState(loadSession);
   const user = session?.user || null;
   const token = session?.token || null;
-  const isSupervisor = user?.role === 'supervisor';
+  // admin y supervisor ven el panel; el admin además configura (en modo demo, sin servidor, todo está permitido)
+  const isSupervisor = user?.role === 'supervisor' || user?.role === 'admin';
+  const isAdmin = user?.role === 'admin' || !!user?.demo;
+  const [usersVersion, setUsersVersion] = useState(0);
   const serverMode = !!token && isSupervisor;   // la simulación corre en el servidor y la comparten todos
   const [server, setServer] = useState({ status: 'off', error: null }); // conexión en tiempo real con el servidor
   const [thresholds, setThresholdsLocal] = useState(() => ({ ...DEFAULT_THRESHOLDS, ...load('hg_thresholds', {}) }));
@@ -152,6 +155,7 @@ export function AppProvider({ children }) {
         setRemote(remoteRef.current);
       },
       config: (c) => { thRef.current = { ...thRef.current, ...c }; setThresholdsLocal(thRef.current); },
+      users: () => setUsersVersion((v) => v + 1),
       simfull: (d) => {
         const { ctl, ...st } = d;
         simRef.current = st; setSim(st);
@@ -291,6 +295,18 @@ export function AppProvider({ children }) {
   }), [apply, pushToasts, sendCommand, token, serverMode, simAction]);
 
   const startSession = (s) => { saveSession(s); setSession(s); };
+  // Al abrir, se actualizan rol y clip asignado desde el servidor (pueden haber cambiado)
+  useEffect(() => {
+    if (!token) return;
+    request('/api/me', { token })
+      .then(({ user: u }) => setSession((prev) => {
+        if (!prev || prev.token !== token) return prev;
+        const next = { ...prev, user: u };
+        saveSession(next);
+        return next;
+      }))
+      .catch((e) => { if (e.status === 401) { saveSession(null); setSession(null); } });
+  }, [token]);
   const login = async (usuario, clave) => startSession(await apiLogin(usuario, clave));
   const loginDemo = () => startSession({ token: null, user: { name: 'Modo demo', role: 'supervisor', demo: true } });
   const logout = () => {
@@ -311,7 +327,7 @@ export function AppProvider({ children }) {
   const liveIds = useMemo(() => liveClips.map((l) => l.workerId), [liveClips]);
 
   const value = {
-    user, token, login, loginDemo, logout, server, remote, liveClips, liveIds,
+    user, token, isAdmin, usersVersion, login, loginDemo, logout, server, remote, liveClips, liveIds,
     theme, toggleTheme: () => setTheme((t) => (t === 'dark' ? 'light' : 'dark')),
     sim, workers: sim.workers, alerts: sim.alerts, clock: sim.clock, siteHistory: sim.siteHistory, events: sim.events,
     thresholds, setThresholds,

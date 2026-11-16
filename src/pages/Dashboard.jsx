@@ -11,6 +11,7 @@ import { STATUS, STATUS_RANK } from '../lib/risk';
 import { fmtClock } from '../lib/format';
 import { hiCategory, HI_REF_LINES } from '../lib/heatIndex';
 import { BUTTON_EVENT } from '../lib/buttonEvents';
+import { useStableOrder } from '../hooks/useStableOrder';
 
 export default function Dashboard() {
   const { workers, alerts, siteHistory, clock, thresholds, orderPause, cancelPause, events, liveIds } = useApp();
@@ -26,7 +27,7 @@ export default function Dashboard() {
   const firstPinned = (a, b) => isLive(b.id) - isLive(a.id);
   const waiting = workers.filter((w) => w.pauseReq).sort((a, b) => firstPinned(a, b) || a.pauseReq.since - b.pauseReq.since);
   const resting = workers.filter((w) => w.resting).sort((a, b) => firstPinned(a, b) || a.pauseStart - b.pauseStart);
-  const nearLimit = workers.filter((w) => !w.resting && !w.pauseReq && w.status === 'cansancio').sort((a, b) => firstPinned(a, b) || b.load - a.load).slice(0, 6);
+  const nearLimit = useStableOrder(workers.filter((w) => !w.resting && !w.pauseReq && w.status === 'cansancio').sort((a, b) => firstPinned(a, b) || b.load - a.load)).slice(0, 6);
   const openAlerts = alerts.filter((a) => a.status !== 'resuelta').slice(0, 5);
   const btnEvents = events.filter((e) => BUTTON_EVENT[e.type]).slice(0, 8);
 

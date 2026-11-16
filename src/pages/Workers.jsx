@@ -9,6 +9,7 @@ import HeatIndexBadge from '../components/HeatIndexBadge';
 import SourceBadge from '../components/SourceBadge';
 import PauseBadge from '../components/PauseBadge';
 import { movDetail } from '../lib/format';
+import { useStableOrder } from '../hooks/useStableOrder';
 
 const FILTERS = [
   ['all', 'Todos'], ['descanso', 'Toca descanso'], ['cansancio', 'Cansancio'], ['normal', 'Óptimo'], ['pausa', 'En pausa'], ['offline', 'Sin señal'],
@@ -36,6 +37,8 @@ export default function Workers() {
     const pinned = workers.filter((w) => liveIds.includes(w.id));
     return [...pinned, ...l.filter((w) => !liveIds.includes(w.id))];
   }, [workers, q, filter, zone, sort, workerStatus, liveIds]);
+  // los valores se actualizan en vivo, pero el orden de las filas solo cada 10 s (o al cambiar filtros)
+  const shown = useStableOrder(list, [q, filter, zone, sort, liveIds.join()].join('|'));
 
   return (
     <div className="page-layout">
@@ -79,7 +82,7 @@ export default function Workers() {
             </tr>
           </thead>
           <tbody>
-            {list.map((w) => {
+            {shown.map((w) => {
               const st = workerStatus(w);
               const zone = ZONES.find((z) => z.id === w.zoneId).name;
               return (

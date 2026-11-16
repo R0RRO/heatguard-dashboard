@@ -3,7 +3,17 @@ import { useApp } from '../context/AppContext';
 import { fmtClock } from '../lib/format';
 
 export default function SimControls() {
-  const { running, setRunning, speed, setSpeed, heatOffset, setHeatOffset, clock, resetSim, liveIds } = useApp();
+  const { running, setRunning, speed, setSpeed, heatOffset, setHeatOffset, clock, resetSim, liveIds, isAdmin } = useApp();
+  if (!isAdmin) {
+    return (
+      <div className="card px-3 py-2 flex items-center gap-3 flex-wrap text-xs">
+        <span className="badge bg-surface-2 text-ink-2 border-line-2">Simulación</span>
+        {liveIds.length > 0 && <span className="badge bg-emerald-50 text-emerald-700 border-emerald-300">+ {liveIds.length} clip{liveIds.length > 1 ? 's' : ''} real{liveIds.length > 1 ? 'es' : ''}</span>}
+        <span className="font-mono font-semibold text-ink text-sm">{fmtClock(clock)}</span>
+        {!running && <span className="text-slate-500">en pausa</span>}
+      </div>
+    );
+  }
   return (
     <div className="card px-3 py-2 flex items-center gap-3 flex-wrap text-xs">
       <span className="badge bg-surface-2 text-ink-2 border-line-2">Simulación</span>

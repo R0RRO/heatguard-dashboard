@@ -68,7 +68,7 @@ public class MainActivity extends Activity {
 
     private void render() {
         if (prefs.getString("token", null) == null) showLogin();
-        else if ("supervisor".equals(prefs.getString("role", ""))) showSupervisor();
+        else if ("supervisor".equals(prefs.getString("role", "")) || "admin".equals(prefs.getString("role", ""))) showSupervisor();
         else showMain();
     }
 
@@ -456,6 +456,12 @@ public class MainActivity extends Activity {
     private String supOrder = "";
     private final java.util.Map<String, SupCard> supCards = new java.util.HashMap<>();
     private String supFilter = "todos";
+    // criterios de orden de la lista del supervisor (el clip real siempre va primero)
+    private static final String[][] SORTS = {{"urgencia", "Urgencia"}, {"exposicion", "Exposición"}, {"sensacion", "Sensación"}, {"nombre", "Nombre"}};
+    private int supSort = 0;
+    private List<String> supIds = new ArrayList<>();   // orden mostrado; se recalcula cada 10 s
+    private long supSortedAt = 0;
+    private String supRealKey = "";
 
     private static final java.util.Map<String, Integer> STATUS_COLOR = new java.util.HashMap<>();
     private static final java.util.Map<String, String> STATUS_LABEL = new java.util.HashMap<>();
@@ -477,7 +483,7 @@ public class MainActivity extends Activity {
         LinearLayout root = column(0);
         root.setBackgroundColor(BG);
         sv.addView(root);
-        header(root, prefs.getString("name", "") + " · supervisor");
+        header(root, prefs.getString("name", "") + ("admin".equals(prefs.getString("role", "")) ? " · administrador" : " · supervisor"));
         LinearLayout c = column(14);
         root.addView(c);
         supSummary = text("Conectando con el servidor…", 18, INK, true);
@@ -487,7 +493,7 @@ public class MainActivity extends Activity {
         space(c, 8);
 
         LinearLayout filters = new LinearLayout(this);
-        String[][] fs = {{"todos", "Todos"}, {"atencion", "Requieren atención"}, {"reales", "Clips reales"}};
+        String[][] fs = {{"todos", "Todos"}, {"atencion", "Requieren atención"}};
         List<Button> fbs = new ArrayList<>();
         for (String[] f : fs) {
             Button b = button(f[1], f[0].equals(supFilter));
@@ -507,6 +513,21 @@ public class MainActivity extends Activity {
             lp.setMargins(0, 0, px(6), 0);
             filters.addView(b, lp);
         }
+        // botón que alterna el criterio de orden
+        supSort = Math.max(0, Math.min(SORTS.length - 1, prefs.getInt("supSort", 0)));
+        Button sortBtn = button("⇅ " + SORTS[supSort][1], false);
+        sortBtn.setTextSize(12);
+        sortBtn.setSingleLine(true);
+        sortBtn.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        sortBtn.setPadding(px(6), 0, px(6), 0);
+        sortBtn.setOnClickListener(v -> {
+            supSort = (supSort + 1) % SORTS.length;
+            prefs.edit().putInt("supSort", supSort).apply();
+            sortBtn.setText("⇅ " + SORTS[supSort][1]);
+            supOrder = "";
+            drawSupervisor();
+        });
+        filters.addView(sortBtn, new LinearLayout.LayoutParams(0, px(38), 1f));
         c.addView(filters);
         space(c, 8);
 
@@ -585,16 +606,43 @@ public class MainActivity extends Activity {
             if (st.equals("cansancio")) tired++;
             if (st.equals("pausa")) paused++;
             if (w.optBoolean("real")) real++;
-            boolean show = supFilter.equals("todos")
-                    || (supFilter.equals("reales") && w.optBoolean("real"))
+            boolean show = supFilter.equals("todos") || w.optBoolean("real")   // el clip real se muestra siempre
                     || (supFilter.equals("atencion") && (st.equals("descanso") || st.equals("finPausa") || st.equals("cansancio") || st.equals("offline")));
             if (show) ws.add(w);
         }
+        String crit = SORTS[supSort][0];
         ws.sort((a, b) -> {
-            if (a.optBoolean("real") != b.optBoolean("real")) return a.optBoolean("real") ? -1 : 1;
-            int r = STATUS_RANK.getOrDefault(a.optString("status"), 9) - STATUS_RANK.getOrDefault(b.optString("status"), 9);
-            return r != 0 ? r : b.optInt("load") - a.optInt("load");
+            if (a.optBoolean("real") != b.optBoolean("real")) return a.optBoolean("real") ? -1 : 1;   // clip real primero
+            switch (crit) {
+                case "exposicion": return b.optInt("load") - a.optInt("load");
+                case "sensacion": return Double.compare(b.optDouble("hi", -99), a.optDouble("hi", -99));
+                case "nombre": return a.optString("name").compareToIgnoreCase(b.optString("name"));
+                default: {
+                    int r = STATUS_RANK.getOrDefault(a.optString("status"), 9) - STATUS_RANK.getOrDefault(b.optString("status"), 9);
+                    return r != 0 ? r : b.optInt("load") - a.optInt("load");
+                }
+            }
         });
+        // los valores se actualizan en vivo; el orden de las tarjetas solo cada 10 s (o al cambiar filtro u orden)
+        long nowMs = System.currentTimeMillis();
+        StringBuilder realKey = new StringBuilder();
+        for (JSONObject w : ws) if (w.optBoolean("real")) realKey.append(w.optString("id")).append(',');
+        boolean realChanged = !realKey.toString().equals(supRealKey);   // un clip real que se conecta sube al tiro
+        supRealKey = realKey.toString();
+        if (supOrder.isEmpty() || realChanged || nowMs - supSortedAt >= 10000) {
+            supIds = new ArrayList<>();
+            for (JSONObject w : ws) supIds.add(w.optString("id"));
+            supSortedAt = nowMs;
+        } else {
+            java.util.Map<String, JSONObject> byId = new java.util.HashMap<>();
+            for (JSONObject w : ws) byId.put(w.optString("id"), w);
+            List<JSONObject> stable = new ArrayList<>();
+            List<String> kept = new ArrayList<>();
+            for (String id : supIds) if (byId.containsKey(id)) { stable.add(byId.remove(id)); kept.add(id); }
+            for (JSONObject w : ws) if (byId.containsKey(w.optString("id"))) { stable.add(w); kept.add(w.optString("id")); }
+            ws = stable;
+            supIds = kept;
+        }
         JSONObject ctl = d.optJSONObject("ctl");
         supSummary.setText(arr.length() + " trabajadores · " + rest + " toca descanso · " + tired + " cansancio · " + paused + " en pausa");
         supConfig.setText((real > 0 ? real + " con clip real · " : "") + "hora simulada " + clockText(d.optInt("clock"))

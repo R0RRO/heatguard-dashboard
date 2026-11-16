@@ -8,7 +8,7 @@ import ThemeToggle from './ThemeToggle';
 export default function Navbar() {
   const [open, setOpen] = useState(false);
   const { pathname } = useLocation();
-  const { user, logout, alerts } = useApp();
+  const { user, logout, alerts, isAdmin, token } = useApp();
   const active = alerts.filter((a) => a.status === 'activa' && a.level === 'alerta').length;
 
   const links = [
@@ -17,7 +17,8 @@ export default function Navbar() {
     { to: '/alerts', label: 'Alertas', badge: active },
     { to: '/devices', label: 'Dispositivos' },
     { to: '/producto', label: 'Producto' },
-    { to: '/settings', label: 'Pausas' },
+    ...(token ? [{ to: '/usuarios', label: 'Usuarios' }] : []),
+    ...(isAdmin ? [{ to: '/settings', label: 'Pausas' }] : []),
   ];
   const isActive = (to) => (to === '/' ? pathname === '/' : pathname.startsWith(to));
 
@@ -50,7 +51,7 @@ export default function Navbar() {
             <ThemeToggle />
             <div className="hidden sm:block text-right leading-tight">
               <p className="text-sm font-semibold text-white">{user.name}</p>
-              <p className="text-[11px] text-navy-200 capitalize">{user.demo ? 'sin servidor' : user.role}</p>
+              <p className="text-[11px] text-navy-200 capitalize">{user.demo ? 'sin servidor' : { admin: 'Administrador', supervisor: 'Supervisor' }[user.role] || user.role}</p>
             </div>
             <button onClick={logout} title="Cerrar sesión" className="hidden sm:flex p-2 rounded-lg text-navy-200 hover:bg-white/10 hover:text-white cursor-pointer">
               <LogOut className="w-4 h-4" />

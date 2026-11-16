@@ -25,6 +25,7 @@ npm run lint
 
 `server/index.js` (Node 20+, sin dependencias) entrega el panel compilado, maneja el inicio de sesión, corre la simulación de la cuadrilla (la misma para todos los paneles y la app; usa `src/lib/simulation.js`) y reenvía en tiempo real:
 
+- **Roles:** administrador (todo: usuarios, umbrales de pausas, altura y peso, controles de la simulación), supervisor (monitorea, pide o retira pausas y asigna clips a trabajadores en «Usuarios») y trabajador (su clip). El nombre del usuario trabajador reemplaza al del puesto simulado que tiene asignado.
 - **Supervisor** (navegador): ve toda la obra, con la cuadrilla simulada más los clips reales; pide o retira pausas, ajusta las pausas y la altura y peso de cada trabajador. Todo eso se guarda en el servidor (`server/data/`, fuera de git).
 - **Trabajador** (Android): la app nativa de `android/` vincula el clip y sigue subiendo lecturas en segundo plano (ver `android/README.md`). También existe la versión web: en Chrome de Android, entrar con el usuario del trabajador y tocar «Vincular clip» (solo funciona con la pantalla abierta). En ambas, el celular reenvía cada lectura al servidor y le pasa al clip las solicitudes de pausa, los umbrales y el factor personal.
 
@@ -38,7 +39,7 @@ bash deploy/subir_servidor.sh          # o: bash deploy/subir_servidor.sh usuari
 
 Compila, copia a `~/heatguard` del servidor, instala Node si falta (Fedora con dnf, Debian/Ubuntu con NodeSource), crea los usuarios la primera vez con `deploy/credenciales.env` (fuera de git; en el servidor se borra después), deja el servicio `heatguard` de systemd en `127.0.0.1:8787` y lo publica con `tailscale funnel`. Funnel tiene que estar permitido en la consola de Tailscale (si no, el comando entrega el enlace para activarlo).
 
-Usuarios en el servidor: `node server/usuarios.js lista | clave <usuario> | nuevo <usuario> "<nombre>" <supervisor|trabajador> [w1]` (después `sudo systemctl restart heatguard`). Hay 10 intentos de inicio de sesión cada 10 min por IP; las sesiones duran 12 h (supervisor) o 14 días (trabajador) y sobreviven a un reinicio del servidor.
+Usuarios: se gestionan en la página «Usuarios» del panel (administrador), o en el servidor con `node server/usuarios.js lista | clave <usuario> | nuevo <usuario> "<nombre>" <admin|supervisor|trabajador> [w1]` (después `sudo systemctl restart heatguard`). Hay 10 intentos de inicio de sesión cada 10 min por IP; las sesiones duran 12 h (supervisor) o 14 días (trabajador) y sobreviven a un reinicio del servidor.
 
 **Desarrollo local:** en una terminal `HG_SUPERVISOR_PASS=... HG_TRABAJADOR_PASS=... node server/index.js`; en otra `npm run dev` (Vite reenvía `/api` al puerto 8787). Sin servidor, el botón «Modo demo sin servidor» abre el panel como antes (un clip por Bluetooth en ese navegador).
 

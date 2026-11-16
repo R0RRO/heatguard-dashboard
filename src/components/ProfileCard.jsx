@@ -5,7 +5,7 @@ import { bmi, personalFactor } from '../lib/risk';
 
 // Altura y peso del trabajador: definen el factor personal de la exposición acumulada
 export default function ProfileCard({ w }) {
-  const { setWorkerProfile } = useApp();
+  const { setWorkerProfile, isAdmin } = useApp();
   const [h, setH] = useState(String(w.heightCm ?? ''));
   const [kg, setKg] = useState(String(w.weightKg ?? ''));
   const height = parseFloat(h);
@@ -18,6 +18,9 @@ export default function ProfileCard({ w }) {
   return (
     <div className="card p-4 space-y-3">
       <h2 className="section-heading"><Ruler className="w-4 h-4 text-ink-2" />Datos del trabajador</h2>
+      {!isAdmin ? (
+        <p className="text-sm text-ink">Altura {w.heightCm} cm · peso {w.weightKg} kg</p>
+      ) : (
       <form className="flex items-end gap-3 flex-wrap" onSubmit={(e) => { e.preventDefault(); if (valid) setWorkerProfile(w.id, { heightCm: height, weightKg: weight }); }}>
         <label className="text-xs text-slate-500 flex flex-col">Altura (cm)
           <input className="form-input w-24 mt-1" type="number" min="120" max="230" step="1" value={h} onChange={(e) => setH(e.target.value)} />
@@ -27,6 +30,7 @@ export default function ProfileCard({ w }) {
         </label>
         <button className="btn-primary btn-sm" disabled={!valid || !changed}><Save className="w-3.5 h-3.5" />Guardar</button>
       </form>
+      )}
       <p className="text-sm text-ink">
         {valid ? <>IMC <b>{b.toFixed(1)}</b> · factor personal <b>×{f.toFixed(1)}</b></> : <span className="text-amber-700">Altura o peso fuera de rango: se usa factor ×1.</span>}
       </p>

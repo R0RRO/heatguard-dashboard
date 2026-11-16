@@ -8,13 +8,14 @@ import LiveClipCard from '../components/LiveClipCard';
 import SourceBadge from '../components/SourceBadge';
 import { TELEMETRY_VERSION } from '../lib/telemetry';
 import { signalDetail } from '../lib/format';
+import { useStableOrder } from '../hooks/useStableOrder';
 
 export default function Devices() {
   const { workers, sim, liveIds } = useApp();
   const isLive = (id) => liveIds.includes(id);
   const online = workers.filter((w) => w.online).length;
   const low = workers.filter((w) => w.battery < 20).length;
-  const sorted = [...workers].sort((a, b) => isLive(b.id) - isLive(a.id) || a.battery - b.battery);
+  const sorted = useStableOrder([...workers].sort((a, b) => isLive(b.id) - isLive(a.id) || a.battery - b.battery), liveIds.join());
 
   return (
     <div className="page-layout">
