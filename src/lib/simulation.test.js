@@ -1,7 +1,7 @@
 // Pruebas del modelo de carga, la simulación y la integración con un clip real.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createState, step, orderPause, cancelPause, pressButton } from './simulation.js';
+import { createState, step, advance, orderPause, cancelPause, pressButton } from './simulation.js';
 import { DEFAULT_THRESHOLDS, computeStatus, loadRate, recoveryRate, heatFactor } from './risk.js';
 import { heatIndexC } from './heatIndex.js';
 import { decodeTelemetry, encodeTelemetry, STATE } from './telemetry.js';
@@ -200,4 +200,11 @@ test('cambio de día: pausas de hoy, exposición máxima y registro parten de ce
   assert.ok(s.workers.every((w) => w.peakLoad === w.load));
   assert.ok(s.workers.every((w) => w.battery >= 88 && w.battery <= 100));
   assert.equal(s.events.length, 0);
+});
+
+test('velocidad: advance con 0 pasos no mueve el reloj; con n pasos avanza n minutos', () => {
+  const th = DEFAULT_THRESHOLDS;
+  const s0 = createState(th, 0);
+  assert.equal(advance(s0, th, 0, [], 0).state.clock, s0.clock);
+  assert.equal(advance(s0, th, 0, [], 10).state.clock, s0.clock + 10);
 });

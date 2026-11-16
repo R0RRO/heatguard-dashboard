@@ -7,7 +7,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import zlib from 'node:zlib';
-import { createState, step, orderPause, cancelPause, pressButton, ackAlert, resolveAlert, setProfile } from '../src/lib/simulation.js';
+import { createState, advance, SPEED_MIN, SPEED_MAX, orderPause, cancelPause, pressButton, ackAlert, resolveAlert, setProfile } from '../src/lib/simulation.js';
 import { displayStatus } from '../src/lib/risk.js';
 import { ZONES, WORKER_SEEDS } from '../src/data/seed.js';
 
@@ -125,7 +125,7 @@ const enVivo = (id) => vivos[id] && vivos[id].link !== 'off';
 
 // ───────── Simulación de la cuadrilla (la misma para todos los paneles y la app) ─────────
 // Los trabajadores con un clip real enlazado usan sus lecturas; el resto es simulado (src/lib/simulation.js).
-const sim = { state: null, running: true, speed: 1, heatOffset: 0, tickAt: {}, ticks: 0 };
+const sim = { state: null, running: true, speed: 1, heatOffset: 0, tickAt: {}, ticks: 0, acc: 0, lastSteps: 1 };
 function nuevaSim() {
   let st = createState(estado.config, sim.heatOffset);
   for (const [id, p] of Object.entries(estado.profiles)) st = setProfile(st, id, p);
@@ -144,11 +144,11 @@ function aplicarNombres() {
 }
 nuevaSim();
 const simCtl = () => ({ running: sim.running, speed: sim.speed, heatOffset: sim.heatOffset });
-const sinHistoria = (w) => { const { history, ...resto } = w; return { ...resto, points: history.slice(-sim.speed) }; };
+const sinHistoria = (w) => { const { history, ...resto } = w; return { ...resto, points: sim.lastSteps ? history.slice(-sim.lastSteps) : [] }; };
 function simDelta(toasts) {
   const st = sim.state;
   return { clock: st.clock, workers: st.workers.map(sinHistoria), alerts: st.alerts.slice(0, 60), events: st.events, spare: st.spare,
-    nextAlertId: st.nextAlertId, sitePoints: st.siteHistory.slice(-sim.speed), toasts, ctl: simCtl() };
+    nextAlertId: st.nextAlertId, sitePoints: sim.lastSteps ? st.siteHistory.slice(-sim.lastSteps) : [], toasts, ctl: simCtl() };
 }
 const simCompleta = () => ({ ...sim.state, alerts: sim.state.alerts.slice(0, 60), ctl: simCtl() });
 const r1 = (x) => (Number.isFinite(x) ? Math.round(x * 10) / 10 : null);
@@ -184,13 +184,16 @@ setInterval(() => {
     live.push({ workerId: id, msg: v.msg, linked: !!v.msg && ahora - v.at < 8000, dtMin: sim.tickAt[id] ? (ahora - sim.tickAt[id]) / 60000 : 0 });
     sim.tickAt[id] = ahora;
   }
-  let toasts = [];
-  for (let i = 0; i < sim.speed; i++) {
-    const r = step(sim.state, estado.config, sim.heatOffset, i === 0 ? live : live.map((l) => ({ ...l, dtMin: 0 })));
-    sim.state = r.state; toasts = toasts.concat(r.toasts);
-  }
-  sim.ticks += sim.speed;
-  emitirSim(sim.ticks > 6 ? toasts : []);
+  // velocidad fraccionaria: se acumula y se avanzan los minutos enteros que correspondan
+  sim.acc += sim.speed;
+  const pasos = Math.floor(sim.acc + 1e-9);
+  sim.acc -= pasos;
+  const r = advance(sim.state, estado.config, sim.heatOffset, live, pasos);
+  sim.state = r.state;
+  sim.lastSteps = pasos;
+  sim.ticks += pasos;
+  if (pasos === 0 && !live.length) return;   // nada cambió en este intervalo
+  emitirSim(sim.ticks > 6 ? r.toasts : []);
 }, 1500);
 
 // ───────── HTTP ─────────
@@ -343,11 +346,11 @@ async function api(req, res, url) {
         break;
       case 'ackAlert': sim.state = ackAlert(sim.state, Number(b.alertId)); break;
       case 'resolveAlert': sim.state = resolveAlert(sim.state, Number(b.alertId)); break;
-      case 'reset': if (!esAdmin) return soloAdmin(); nuevaSim(); break;
+      case 'reset': nuevaSim(); break;
       case 'control':
-        if (!esAdmin) return soloAdmin();
+        // controles de la simulación (para demostrar el sistema): supervisor y admin
         if (typeof b.running === 'boolean') sim.running = b.running;
-        if (num(b.speed, 1, 10)) sim.speed = Math.round(b.speed);
+        if (num(b.speed, SPEED_MIN, SPEED_MAX)) { sim.speed = Math.round(b.speed * 1000) / 1000; sim.acc = 0; }
         if (num(b.heatOffset, -6, 10)) sim.heatOffset = Math.round(b.heatOffset);
         break;
       default: return json(res, 400, { error: 'Acción desconocida' });

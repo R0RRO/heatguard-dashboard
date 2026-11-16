@@ -25,7 +25,7 @@ npm run lint
 
 `server/index.js` (Node 20+, sin dependencias) entrega el panel compilado, maneja el inicio de sesión, corre la simulación de la cuadrilla (la misma para todos los paneles y la app; usa `src/lib/simulation.js`) y reenvía en tiempo real:
 
-- **Roles:** administrador (todo: usuarios, umbrales de pausas, altura y peso, controles de la simulación), supervisor (monitorea, pide o retira pausas y asigna clips a trabajadores en «Usuarios») y trabajador (su clip). El nombre del usuario trabajador reemplaza al del puesto simulado que tiene asignado.
+- **Roles:** administrador (usuarios, umbrales de pausas, altura y peso, más todo lo del supervisor), supervisor (monitorea, pide o retira pausas, asigna clips a trabajadores en «Usuarios» y maneja los controles de la simulación para demostrar el sistema) y trabajador (su clip). El nombre del usuario trabajador reemplaza al del puesto simulado que tiene asignado.
 - **Supervisor** (navegador): ve toda la obra, con la cuadrilla simulada más los clips reales; pide o retira pausas, ajusta las pausas y la altura y peso de cada trabajador. Todo eso se guarda en el servidor (`server/data/`, fuera de git).
 - **Trabajador** (Android): la app nativa de `android/` vincula el clip y sigue subiendo lecturas en segundo plano (ver `android/README.md`). También existe la versión web: en Chrome de Android, entrar con el usuario del trabajador y tocar «Vincular clip» (solo funciona con la pantalla abierta). En ambas, el celular reenvía cada lectura al servidor y le pasa al clip las solicitudes de pausa, los umbrales y el factor personal.
 

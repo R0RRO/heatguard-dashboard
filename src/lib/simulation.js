@@ -276,6 +276,44 @@ export function step(prev, th, heatOffset = 0, live = null) {
   return { state: next, toasts: newToasts };
 }
 
+// Lecturas de clips reales sin avanzar el reloj simulado (cuando la simulación va más lenta que 1 minuto por
+// intervalo, el clip real igual debe verse al día). Registra los eventos del botón como lo haría step().
+export function applyLive(prev, th, live) {
+  const lives = Array.isArray(live) ? live : live ? [live] : [];
+  if (!lives.length) return { state: prev, toasts: [] };
+  let events = prev.events;
+  const toasts = [];
+  const workers = prev.workers.map((w) => {
+    const lv = lives.find((x) => x.workerId === w.id);
+    if (!lv) return w;
+    const n = tickLiveWorker(w, prev.clock, th, lv);
+    if (n.btnEvent) events = [{ type: n.btnEvent, clock: prev.clock, workerId: w.id, workerName: w.name }, ...events].slice(0, 40);
+    if (n.autoRequested) {
+      events = [{ type: 'pausa-solicitada', clock: prev.clock, workerId: w.id, workerName: w.name }, ...events].slice(0, 40);
+      toasts.push({ level: 'info', text: `${w.name}: toca descanso (exposición ${Math.round(n.load)} %). El clip pide la pausa.` });
+    }
+    return { ...n, history: w.history, btnEvent: null, autoRequested: false };
+  });
+  return { state: { ...prev, workers, events }, toasts };
+}
+
+// Avanza la simulación `steps` minutos (0 = solo actualiza los clips reales). Las lecturas reales se aplican una vez.
+export function advance(prev, th, heatOffset, live, steps) {
+  if (steps <= 0) return applyLive(prev, th, live);
+  let state = prev;
+  let toasts = [];
+  for (let i = 0; i < steps; i++) {
+    const r = step(state, th, heatOffset, i === 0 ? live : (live || []).map((l) => ({ ...l, dtMin: 0 })));
+    state = r.state; toasts = toasts.concat(r.toasts);
+  }
+  return { state, toasts };
+}
+
+// Velocidades de la simulación: minutos simulados por intervalo de 1,5 s (×1 ≈ 40 veces el tiempo real)
+export const SIM_TICK_MS = 1500;
+export const SPEED_MIN = 0.025;   // ×0,025 = tiempo real
+export const SPEED_MAX = 60;
+
 // ─── Acciones del supervisor ────────────────────────────────────────────
 // Solicitar una pausa: el clip pasa a rojo y vibra (5 pulsos cada 40 s) hasta que el trabajador mantiene
 // el botón. El panel NO pone a nadie en pausa directamente.

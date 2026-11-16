@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { createState as createSim, step, orderPause, cancelPause, pressButton, ackAlert, resolveAlert, setProfile } from '../lib/simulation';
+import { createState as createSim, advance, orderPause, cancelPause, pressButton, ackAlert, resolveAlert, setProfile } from '../lib/simulation';
 import { DEFAULT_THRESHOLDS, displayStatus, personalFactor } from '../lib/risk';
 import { createClipLink, bluetoothSupported } from '../lib/clipLink';
 import { COMMAND } from '../lib/telemetry';
@@ -73,6 +73,7 @@ export function AppProvider({ children }) {
   const [sim, setSim] = useState(() => createState(thresholds, heatOffset));
   const simRef = useRef(sim);
   const tickCount = useRef(0);
+  const accRef = useRef(0);
 
   useEffect(() => { thRef.current = thresholds; save('hg_thresholds', thresholds); }, [thresholds]);
 
@@ -221,13 +222,14 @@ export function AppProvider({ children }) {
         live.push({ workerId: id, msg: r.msg, linked: !!r.msg && now - r.recvAt < LINK_FRESH_MS, dtMin: (now - r.tickAt) / 60000 });
         r.tickAt = now;
       }
-      for (let i = 0; i < speed; i++) {
-        const { state, toasts: tt } = step(simRef.current, thRef.current, heatRef.current, i === 0 ? live : live.map((l) => ({ ...l, dtMin: 0 })));
-        simRef.current = state;
-        allToasts = allToasts.concat(tt);
-      }
+      accRef.current += speed;
+      const steps = Math.floor(accRef.current + 1e-9);
+      accRef.current -= steps;
+      const { state, toasts: tt } = advance(simRef.current, thRef.current, heatRef.current, live, steps);
+      simRef.current = state;
+      allToasts = allToasts.concat(tt);
       setSim(simRef.current);
-      tickCount.current += speed;
+      tickCount.current += steps;
       // evita ráfaga de avisos al iniciar la simulación
       if (tickCount.current > 6) pushToasts(allToasts);
     }, 1500);
