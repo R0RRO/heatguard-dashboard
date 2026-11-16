@@ -53,11 +53,14 @@ export default function Workers() {
             <option value="all">Todas las zonas</option>
             {ZONES.filter((z) => z.kind === 'trabajo').map((z) => <option key={z.id} value={z.id}>{z.name}</option>)}
           </select>
-          <select className="form-select" value={sort} onChange={(e) => setSort(e.target.value)}>
-            <option value="load">Ordenar: exposición</option>
-            <option value="hi">Ordenar: sensación térmica (Heat Index)</option>
-            <option value="name">Ordenar: nombre</option>
-          </select>
+          <label className="flex items-center gap-2 text-sm text-slate-500 whitespace-nowrap">
+            Ordenar por
+            <select className="form-select" value={sort} onChange={(e) => setSort(e.target.value)}>
+              <option value="load">Exposición</option>
+              <option value="hi">Sensación térmica (Heat Index)</option>
+              <option value="name">Nombre</option>
+            </select>
+          </label>
         </div>
         <div className="flex gap-1.5 flex-wrap">
           {FILTERS.map(([k, label]) => (
