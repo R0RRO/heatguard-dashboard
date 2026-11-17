@@ -1,0 +1,12 @@
+{
+  "device_id":"HG-RAD-LAB", "event_id":"future-sensor-001",
+  "timestamp":"2026-11-15T14:05:00-03:00",
+  "transport_metadata":{"simulated":true},
+  "context":{"zone_id":"exterior_sol","environment":"outdoor",
+    "radiation":{"mode":"differential","black_surface_c":42.5,"white_surface_c":34.2,
+      "source_kind":"assumed","source_id":"VIRTUAL_PAIR_THERMOMETERS_NOT_INSTALLED"}},
+  "observations":[
+    {"parameter":"air_temperature_c","value":32.4,"unit":"degC","kind":"assumed","source":"VIRTUAL_T"},
+    {"parameter":"relative_humidity_pct","value":55,"unit":"percent","kind":"assumed","source":"VIRTUAL_RH"}
+  ]
+}

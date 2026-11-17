@@ -1,0 +1,29 @@
+{
+  "event": {
+    "device_id": "HG-VIRTUAL-001",
+    "event_id": "EXAMPLE-ONLY-001",
+    "timestamp": "2026-11-11T18:00:00Z",
+    "context": {
+      "site_id": "FAENA_FICTICIA",
+      "worker_id": "worker-test",
+      "zone_id": "exterior_sol",
+      "environment": "outdoor",
+      "activity_class": "unknown"
+    },
+    "transport_metadata": {"simulated": true},
+    "observations": [
+      {"parameter":"air_temperature_c","value":30,"unit":"degC","kind":"assumed","source":"FICTITIOUS_EXAMPLE"},
+      {"parameter":"relative_humidity_pct","value":55,"unit":"percent","kind":"assumed","source":"FICTITIOUS_EXAMPLE"}
+    ]
+  },
+  "phone": {
+    "location_consent": true,
+    "latitude_deg": -33.44,
+    "longitude_deg": -70.62,
+    "speed_m_s": 1.2
+  },
+  "wearable": {
+    "physiology_consent": true,
+    "heart_rate_bpm": 95
+  }
+}

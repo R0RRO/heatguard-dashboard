@@ -1,0 +1,21 @@
+{
+  "device_id": "HG-001",
+  "timestamp": "2026-11-11T17:00:00Z",
+  "context": {
+    "zone_id": "OBRA-A-EXTERIOR",
+    "environment": "outdoor",
+    "location": {"latitude_deg": -33.45, "longitude_deg": -70.66, "utc_offset_hours": -3},
+    "weather_model": {"wind_height_m": 10, "averaging_minutes": 0, "urban": 1, "vertical_temperature_difference_c": 0}
+  },
+  "observations": [
+    {"parameter": "air_temperature_c", "value": 32.1, "unit": "degC", "kind": "measured", "source": "HTU21D"},
+    {"parameter": "relative_humidity_pct", "value": 61, "unit": "percent", "kind": "measured", "source": "HTU21D"},
+    {"parameter": "solar_w_m2", "value": 650, "unit": "W/m2", "kind": "assumed", "source": "HIPOTESIS_DEMO_SOL"},
+    {"parameter": "solar_w_m2", "value": 720, "unit": "W/m2", "kind": "external", "source": "ESTACION_FAENA_PIRANOMETRO"},
+    {"parameter": "wind_speed_m_s", "value": 1.0, "unit": "m/s", "kind": "assumed", "source": "HIPOTESIS_DEMO_VIENTO"},
+    {"parameter": "wind_speed_m_s", "value": 1.8, "unit": "m/s", "kind": "external", "source": "ESTACION_FAENA_ANEMOMETRO_10M"},
+    {"parameter": "pressure_hpa", "value": 950, "unit": "hPa", "kind": "assumed", "source": "HIPOTESIS_DEMO_PRESION"},
+    {"parameter": "surface_temperature_c", "value": 38.2, "unit": "degC", "kind": "measured", "source": "FUTURO_TERMISTOR_CASE"},
+    {"parameter": "heart_rate_bpm", "value": 95, "unit": "bpm", "kind": "measured", "source": "SMARTWATCH_DEMO"}
+  ]
+}

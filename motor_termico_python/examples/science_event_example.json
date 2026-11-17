@@ -1,0 +1,21 @@
+{
+  "device_id": "HG-SCIENCE-DEMO",
+  "timestamp": "2026-11-11T17:00:00-03:00",
+  "context": {
+    "zone_id": "exterior_sol",
+    "environment": "outdoor",
+    "science": {"enable_simplified_balance": true, "wind_is_local": true},
+    "location": {"latitude_deg": -33.45, "longitude_deg": -70.65, "utc_offset_hours": -3},
+    "weather_model": {
+      "wind_height_m": 1.5, "averaging_minutes": 60,
+      "urban": 1, "vertical_temperature_difference_c": 0
+    }
+  },
+  "observations": [
+    {"parameter": "air_temperature_c", "value": 32.0, "unit": "degC", "kind": "assumed", "source": "SIMULATED_INPUT_NOT_SENSOR"},
+    {"parameter": "relative_humidity_pct", "value": 60.0, "unit": "percent", "kind": "assumed", "source": "SIMULATED_INPUT_NOT_SENSOR"},
+    {"parameter": "solar_w_m2", "value": 650.0, "unit": "W/m2", "kind": "assumed", "source": "ILLUSTRATIVE_SOLAR_SCENARIO"},
+    {"parameter": "wind_speed_m_s", "value": 1.5, "unit": "m/s", "kind": "assumed", "source": "ILLUSTRATIVE_LOCAL_WIND_SCENARIO"},
+    {"parameter": "pressure_hpa", "value": 1008.0, "unit": "hPa", "kind": "assumed", "source": "ILLUSTRATIVE_PRESSURE_SCENARIO"}
+  ]
+}

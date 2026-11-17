@@ -1,0 +1,50 @@
+{
+  "study_id": "JP_MOE_2025_AUG_MULTISITE_PRELIMINARY",
+  "date_start": "2025-08-01",
+  "date_end": "2025-08-14",
+  "threshold_research_only_c": 28.0,
+  "min_valid_days": 6,
+  "min_pairs_per_site": 48,
+  "stations": [
+    {
+      "station_id": 44132,
+      "site_id": "JP_TOKYO",
+      "name": "Tokio (Koishikawa)",
+      "latitude_deg": 35.718547,
+      "longitude_deg": 139.746464,
+      "coordinate_status": "garden_proxy_not_exact_instrument",
+      "japan_json": "data/tokyo_2025_aug_user_run/japon_respuesta.json",
+      "weather_json": "data/tokyo_2025_aug_user_run/openmeteo_respuesta.json"
+    },
+    {
+      "station_id": 62078,
+      "site_id": "JP_OSAKA",
+      "name": "Osaka (identificador candidato)",
+      "latitude_deg": 34.685,
+      "longitude_deg": 135.52,
+      "coordinate_status": "approximate_city_proxy_unverified",
+      "japan_json": "data/multisite/JP_OSAKA/japan_raw.json",
+      "weather_json": "data/multisite/JP_OSAKA/weather_raw.json"
+    },
+    {
+      "station_id": 82182,
+      "site_id": "JP_FUKUOKA",
+      "name": "Fukuoka (identificador candidato)",
+      "latitude_deg": 33.582,
+      "longitude_deg": 130.376,
+      "coordinate_status": "approximate_city_proxy_unverified",
+      "japan_json": "data/multisite/JP_FUKUOKA/japan_raw.json",
+      "weather_json": "data/multisite/JP_FUKUOKA/weather_raw.json"
+    },
+    {
+      "station_id": 14163,
+      "site_id": "JP_SAPPORO",
+      "name": "Sapporo (identificador candidato)",
+      "latitude_deg": 43.061,
+      "longitude_deg": 141.328,
+      "coordinate_status": "approximate_city_proxy_unverified",
+      "japan_json": "data/multisite/JP_SAPPORO/japan_raw.json",
+      "weather_json": "data/multisite/JP_SAPPORO/weather_raw.json"
+    }
+  ]
+}

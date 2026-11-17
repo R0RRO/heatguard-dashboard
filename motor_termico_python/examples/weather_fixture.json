@@ -1,0 +1,17 @@
+{
+  "hourly": {
+    "time": ["2026-11-11T15:00", "2026-11-11T16:00", "2026-11-11T17:00", "2026-11-11T18:00"],
+    "temperature_2m": [29.2, 30.2, 30.5, 30.0],
+    "relative_humidity_2m": [55, 53, 52, 54],
+    "surface_pressure": [970.1, 970.2, 970.3, 970.4],
+    "wind_speed_10m": [1.0, 2.2, 2.5, 2.1],
+    "shortwave_radiation": [400, 550, 640, 520]
+  },
+  "hourly_units": {
+    "temperature_2m": "°C",
+    "relative_humidity_2m": "%",
+    "surface_pressure": "hPa",
+    "wind_speed_10m": "m/s",
+    "shortwave_radiation": "W/m²"
+  }
+}

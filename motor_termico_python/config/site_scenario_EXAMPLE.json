@@ -1,0 +1,11 @@
+{
+  "site_id": "FAENA_FICTICIA",
+  "latitude_deg": -33.45,
+  "longitude_deg": -70.65,
+  "utc_offset_hours": -3,
+  "assumed_wind_m_s": 1.0,
+  "assumed_solar_w_m2": 550.0,
+  "assumed_pressure_hpa": 1013.25,
+  "urban": 1,
+  "vertical_temperature_difference_c": 0.0
+}

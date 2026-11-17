@@ -1,0 +1,15 @@
+{
+  "release_folder": "motor_termico_python",
+  "prepared_on": "2026-11-17",
+  "source": "HeatGuard_Clip_v0.31_STABLE.zip",
+  "source_sha256": "a65a5f25081dabe3bdf66599d4e0e7daf156684c7d141cadd9e8a6f9066a4c14",
+  "source_test_result": "212 tests passed with source historical datasets",
+  "public_folder_test_result": "181 tests passed including five logical BLE v2 adapter checks",
+  "integral_acceptance": "14/14 acceptance checks passed from clean SQLite on public folder",
+  "repo_target": "R0RRO/heatguard-dashboard",
+  "repo_main_tree_sha_at_review": "32d3570e8782ee9a9c14f953fbeb758f6e17c95d",
+  "included_version": "v0.31 with new logical v2 adapter and team handoff docs",
+  "not_included": "v0.32 sources unavailable in current session; raw external research datasets and model pickle/joblib excluded",
+  "not_integrated": "Node server to Python adapter, live hardware BLE, physical ISO reference",
+  "safety": "research_only_not_certified_occupational_heat_alarm"
+}

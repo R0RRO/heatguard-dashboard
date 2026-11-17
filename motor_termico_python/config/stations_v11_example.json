@@ -1,0 +1,11 @@
+[
+  {
+    "station_id": 44132,
+    "site_id": "JP_TOKYO_2025_AUG",
+    "latitude_deg": 35.692,
+    "longitude_deg": 139.750,
+    "coordinate_status": "site_proxy_not_instrument",
+    "japan_json": "data/tokyo_2025_aug_user_run/japon_respuesta.json",
+    "weather_json": "data/tokyo_2025_aug_user_run/openmeteo_respuesta.json"
+  }
+]

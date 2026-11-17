@@ -1,0 +1,5 @@
+name,variable,commercial_part,quoted_price_clp,supplier,idle_current_ma,active_current_ma,dimensions_mm,housing_modification,actual_calibration_available,notes
+sensor_lux,lux_sun_shadow,VEML7700,,,,,6.8x2.35x3 (sensor IC),small optical window,no,LUX no equivale a W/m2; no usar para WBGT sin calibrar
+case_thermistor,surface_temp_c,NTC (a definir),,,,,,thermal-contact patch,no,"Calor del case mezcla viento, radiación y autocalentamiento"
+shared_wind_station,wind_local_m_s,site instrument (a definir),,,,,,no case change,no,Fuente común para grupo; probar representatividad espacial
+personal_airflow,relative_air_flow_m_s,sensor candidate (a definir),,,,,,requires airflow placement,no,"Pendiente evaluar tamaño, dirección y consumo"

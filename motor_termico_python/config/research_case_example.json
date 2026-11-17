@@ -1,0 +1,36 @@
+{
+  "description": "Caso ilustrativo de construcción a cielo abierto; NO son mediciones",
+  "timestamp": "2026-11-11T17:00:00-03:00",
+  "baseline": {
+    "air_temperature_c": 32.0,
+    "relative_humidity_pct": 60.0,
+    "solar_w_m2": 650.0,
+    "wind_speed_m_s": 1.5,
+    "pressure_hpa": 1008.0
+  },
+  "uncertainty_ranges": {
+    "air_temperature_c": [31.7, 32.3],
+    "relative_humidity_pct": [57, 63],
+    "solar_w_m2": [100, 1000],
+    "wind_speed_m_s": [0.2, 4.0],
+    "pressure_hpa": [992, 1024]
+  },
+  "sensor_scenarios": {
+    "sin_sensor_adicional": {},
+    "sensor_radiacion_local": {"solar_w_m2": [570, 730]},
+    "sensor_viento_local": {"wind_speed_m_s": [1.2, 1.8]},
+    "ambos_sensores": {"solar_w_m2": [570, 730], "wind_speed_m_s": [1.2, 1.8]},
+    "sensor_presion": {"pressure_hpa": [1006, 1010]}
+  },
+  "liljegren_context": {
+    "environment": "outdoor",
+    "location": {"latitude_deg": -33.45, "longitude_deg": -70.65, "utc_offset_hours": -3},
+    "weather_model": {
+      "wind_height_m": 10,
+      "averaging_minutes": 60,
+      "urban": 1,
+      "vertical_temperature_difference_c": 0
+    }
+  },
+  "notes": "Caso simulado: los rangos NO son precisión instrumental. Viento local para balance; para Liljegren viento a 10 m solo si proviene de ese nivel. Termistor de carcasa no evaluado sin calibración."
+}

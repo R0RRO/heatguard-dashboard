@@ -1,0 +1,18 @@
+services:
+  heatguard:
+    build: .
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      HG_DB_PATH: /app/data/heatguard.sqlite
+      HG_ENABLE_DEMO: "${HG_ENABLE_DEMO:-0}"
+      HG_ADMIN_API_KEY: "${HG_ADMIN_API_KEY:?configure HG_ADMIN_API_KEY}"
+      HG_VIEWER_API_KEY: "${HG_VIEWER_API_KEY:?configure HG_VIEWER_API_KEY}"
+      HG_ALLOWED_ORIGINS: "${HG_ALLOWED_ORIGINS:-http://127.0.0.1:8000}"
+    volumes:
+      - heatguard-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  heatguard-data:
+

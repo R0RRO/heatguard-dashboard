@@ -1,0 +1,15 @@
+.venv
+__pycache__
+*.py[cod]
+.pytest_cache
+.git
+.env
+*.sqlite
+*.db
+results/
+research_data/
+research_validation/
+tests/
+dashboard_patch/
+*.zip
+

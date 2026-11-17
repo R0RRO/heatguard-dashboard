@@ -1,0 +1,21 @@
+# Esta carpeta se puede colocar dentro de un repositorio público solo después de revisar autoría y licencias.
+.env
+.env.*
+!.env.example
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+*.sqlite
+*.sqlite3
+*.sqlite-*
+*.db
+*.joblib
+results/
+data/
+research_data/
+research_validation/
+models/
+*.log

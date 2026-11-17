@@ -1,0 +1,21 @@
+{
+  "device_id": "HG-DEMO-22", "event_id": "example-001", "timestamp": "2026-11-15T14:00:00-03:00",
+  "transport_metadata": {"simulated": true},
+  "context": {
+    "site_id": "OBRA_SIMULADA", "zone_id": "exterior_sol", "environment": "outdoor",
+    "worker_id": "PSEUDONIMO_TRABAJADOR_001",
+    "activity_class": "moderate", "activity_source": "declaracion_solo_ejemplo",
+    "clothing": "unknown", "acclimatization": "unknown",
+    "radiation": {"mode": "manual", "solar_w_m2": 550},
+    "research_review": {"enabled": true, "threshold_c": 28.0, "illustrative_half_width_c": 1.5,
+      "duration_review_min": 10, "origin": "RESEARCH_SCENARIO_NOT_NORMATIVE"}
+  },
+  "observations": [
+    {"parameter":"air_temperature_c", "value":32.4, "unit":"degC", "kind":"assumed", "source":"VIRTUAL_TEMPERATURE"},
+    {"parameter":"relative_humidity_pct", "value":55, "unit":"percent", "kind":"assumed", "source":"VIRTUAL_RH"},
+    {"parameter":"wind_speed_m_s", "value":1.2, "unit":"m/s", "kind":"assumed", "source":"MANUAL_WIND_SCENARIO"},
+    {"parameter":"battery_level_pct", "value":74, "unit":"percent", "kind":"assumed", "source":"VIRTUAL_BATTERY"},
+    {"parameter":"steps_since_boot", "value":1450, "unit":"count", "kind":"assumed", "source":"VIRTUAL_STEPS"},
+    {"parameter":"hydration_self_report_count", "value":1, "unit":"count", "kind":"assumed", "source":"VIRTUAL_SELF_REPORT"}
+  ]
+}

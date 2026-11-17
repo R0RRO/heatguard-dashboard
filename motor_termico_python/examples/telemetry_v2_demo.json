@@ -1,0 +1,13 @@
+{
+  "v": 2,
+  "deviceId": "HeatGuard Clip",
+  "receivedAt": 1794000000000,
+  "seq": 513,
+  "env": { "ok": true, "tempC": 31.42, "rhPct": 48.5, "heatIndexC": 33.1 },
+  "motion": { "ok": true, "index": 37 },
+  "battery": { "pct": 76, "mV": 3960 },
+  "load": 104,
+  "state": 2,
+  "pauses": 3,
+  "button": { "pressed": false }
+}
