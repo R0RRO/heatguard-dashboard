@@ -17,7 +17,8 @@ echo "== 1/3 Compilando el dashboard"
 npm run build
 
 echo "== 2/3 Copiando a $HOST:~/heatguard"
-tar czf - dist server/index.js server/usuarios.js src/lib src/data deploy/instalar_en_servidor.sh deploy/credenciales.env package.json \
+tar czf - --exclude='__pycache__' dist server/index.js server/usuarios.js src/lib src/data deploy/instalar_en_servidor.sh deploy/credenciales.env package.json \
+    motor_termico_python/heatguard motor_termico_python/integracion \
   | ssh "$HOST" 'mkdir -p ~/heatguard && rm -rf ~/heatguard/dist && tar xzf - -C ~/heatguard'
 
 echo "== 3/3 Instalando el servicio en $HOST (puede pedir tu contraseña de sudo)"

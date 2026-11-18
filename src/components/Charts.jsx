@@ -11,12 +11,24 @@ function scale(domain, range) {
 }
 
 // Gráfico de líneas (varias series) con líneas de referencia y tooltip
+// Tramos continuos de una serie (un valor sin dato corta la línea)
+function segments(data, key) {
+  const out = [];
+  let cur = [];
+  data.forEach((d, i) => {
+    if (Number.isFinite(d[key])) cur.push(i);
+    else if (cur.length) { out.push(cur); cur = []; }
+  });
+  if (cur.length) out.push(cur);
+  return out;
+}
+
 export function LineChart({ data, lines, yDomain, refLines = [] }) {
   const [hover, setHover] = useState(null);
   if (!data.length) return null;
   const [y0, y1] = yDomain || [
-    Math.min(...lines.flatMap((l) => data.map((d) => d[l.key]))),
-    Math.max(...lines.flatMap((l) => data.map((d) => d[l.key]))),
+    Math.min(...lines.flatMap((l) => data.map((d) => d[l.key]).filter(Number.isFinite))),
+    Math.max(...lines.flatMap((l) => data.map((d) => d[l.key]).filter(Number.isFinite))),
   ];
   const x = scale([0, data.length - 1], [PAD.l, W - PAD.r]);
   const y = scale([y0, y1], [H - PAD.b, PAD.t]);
@@ -48,20 +60,21 @@ export function LineChart({ data, lines, yDomain, refLines = [] }) {
             <text x={W - PAD.r - 2} y={y(r.value) - 3} textAnchor="end" fontSize="9" fill={r.color}>{r.label}</text>
           </g>
         ))}
-        {lines.map((l) => (
+        {lines.flatMap((l) => segments(data, l.key).map((seg, k) => (
           <polyline
-            key={l.key}
+            key={`${l.key}-${k}`}
             fill="none"
             stroke={l.color}
             strokeWidth="2"
             strokeLinejoin="round"
-            points={data.map((d, i) => `${x(i)},${y(d[l.key])}`).join(' ')}
+            strokeDasharray={l.dashed ? '5 3' : undefined}
+            points={seg.map((i) => `${x(i)},${y(data[i][l.key])}`).join(' ')}
           />
-        ))}
+        )))}
         {hover !== null && (
           <g>
             <line x1={x(hover)} x2={x(hover)} y1={PAD.t} y2={H - PAD.b} className="stroke-slate-400" strokeDasharray="3 3" />
-            {lines.map((l) => <circle key={l.key} cx={x(hover)} cy={y(data[hover][l.key])} r="3.5" fill={l.color} className="stroke-surface" strokeWidth="1.5" />)}
+            {lines.filter((l) => Number.isFinite(data[hover][l.key])).map((l) => <circle key={l.key} cx={x(hover)} cy={y(data[hover][l.key])} r="3.5" fill={l.color} className="stroke-surface" strokeWidth="1.5" />)}
           </g>
         )}
       </svg>
@@ -74,7 +87,7 @@ export function LineChart({ data, lines, yDomain, refLines = [] }) {
           {lines.map((l) => (
             <p key={l.key} className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full" style={{ background: l.color }} />
-              {l.label}: <b>{Math.round(data[hover][l.key] * 10) / 10}{l.unit || ''}</b>
+              {l.label}: <b>{Number.isFinite(data[hover][l.key]) ? `${Math.round(data[hover][l.key] * 10) / 10}${l.unit || ''}` : '—'}</b>
             </p>
           ))}
         </div>

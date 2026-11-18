@@ -17,9 +17,9 @@ El código Python v0.31 traía un receptor BLE basado en **otra variante de firm
 | Clip -> Android -> Node | Implementado por el compañero | No modificar ni duplicar |
 | Clip calcula Heat Index, movimientos, estado y pausa | Implementado en el firmware actual; reglas no validadas | Conservar para demo, etiquetar correctamente |
 | Node -> React, estado y comandos de pausa | Implementado | Seguir como fuente principal del dashboard |
-| Node -> Python para WBGT experimental | **Pendiente** | Implementar puente backend-backend autenticado |
-| Python -> React, resultados estimación/rangos | **Pendiente** | Crear endpoint Node y panel con etiquetas de origen e incertidumbre |
-| Python -> actuadores BLE | **No enlazado al contrato v2** | NO activar dos motores de alertas simultáneamente |
+| Node -> Python para WBGT experimental | **Implementado** (`integracion/servicio_wbgt.py`, 18-11-2026) | Puente local con clave; ver «Estado de la integración» |
+| Python -> React, resultados estimación/rangos | **Implementado**: Node reenvía el WBGT estimado al panel y a la app | Etiquetado como «WBGT estimado (modelo Ono)» |
+| Python -> actuadores BLE | **Decisión del equipo:** el nivel WBGT define el factor de calor; Node lo envía al clip (comando 11) | Una sola autoridad: el firmware sigue decidiendo el estado; el WBGT solo cambia su factor de calor |
 | Sensor radiativo / viento local | Pendiente de hardware y calibración | Entradas opcionales con procedencia y modo degradado |
 
 ## Contrato mínimo de normalización
@@ -67,3 +67,21 @@ python -m pytest -q tests/test_contract_v2_adapter.py
 ## Compatibilidad eléctrica actual
 
 La unidad documentada utiliza `I²C SDA D4, SCL D8` (D5 dañado en ese ejemplar), RGB rojo D6, verde D3, azul D2; motor D7; botón D0. **El firmware y el cableado real del compañero son la fuente de verdad**, porque algunos documentos de versiones anteriores describen otro pinout. Evaluar consumos/encapsulado antes de añadir sensores.
+
+## Estado de la integración (18-11-2026)
+
+Decisión del equipo: el **WBGT estimado define las pausas** (reemplaza a la categoría del Heat Index en el
+factor de calor de la exposición acumulada), para toda la cuadrilla, simulada y real.
+
+- `integracion/servicio_wbgt.py`: servicio HTTP local (biblioteca estándar), `POST /v1/wbgt/lote` con clave
+  `X-API-Key`. Usa `heatguard/weather.py` (Open-Meteo, radiación y viento regionales) y `heatguard/ono_v09.py`.
+  Niveles WBGT (°C) del Ministerio de Medio Ambiente de Japón: <21, 21–25, 25–28, 28–31, ≥31 → factores ×1, ×1,5, ×2, ×3, ×4.
+- `server/index.js` (Node): cada 1,5 s envía temperatura y humedad de cada trabajador (los simulados con la hora
+  de su reloj simulado, los reales con la hora real) y aplica el resultado a la simulación.
+- Clip real: Node manda el **comando 11** (nivel + 1) al celular del trabajador, que lo reenvía al clip. El firmware
+  usa ese nivel por 10 min; si deja de llegar, vuelve a su Heat Index. Bandera 16 del paquete = factor por WBGT.
+- Sin servicio o sin meteorología, todo vuelve a la sensación térmica (Heat Index) y el panel lo indica.
+- Pruebas: `tests/test_servicio_wbgt.py`.
+
+Sigue siendo una **estimación de modelo con meteorología regional**: no es WBGT/TGBH medido ni ISO 7243, y los
+niveles y factores son una regla del prototipo sin validar en obra.

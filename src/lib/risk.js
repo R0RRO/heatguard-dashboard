@@ -16,9 +16,33 @@ import { hiCategory } from './heatIndex.js';
 
 export const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
 
-// Factor de calor según la categoría del Heat Index del NWS (0 normal … 4 peligro extremo)
+// Factor de calor por nivel (0 … 4). El nivel sale del WBGT estimado por el motor Python
+// (motor_termico_python, modelo de Ono con meteorología Open-Meteo); si no hay WBGT, de la categoría del
+// Heat Index del NWS como respaldo.
 export const HEAT_FACTOR = [1, 1.5, 2, 3, 4];
 export const heatFactor = (hiC) => HEAT_FACTOR[hiCategory(hiC)?.level ?? 0];
+
+// Niveles de WBGT (°C) de la guía del Ministerio de Medio Ambiente de Japón (los mismos que
+// motor_termico_python/integracion/servicio_wbgt.py). Regla del prototipo, sin validar en obra.
+export const WBGT_LEVELS = [
+  { level: 0, label: 'Casi seguro', minC: -Infinity, hex: '#16a34a' },
+  { level: 1, label: 'Atención', minC: 21, hex: '#ca8a04' },
+  { level: 2, label: 'Advertencia', minC: 25, hex: '#ea580c' },
+  { level: 3, label: 'Advertencia severa', minC: 28, hex: '#dc2626' },
+  { level: 4, label: 'Peligro', minC: 31, hex: '#7f1d1d' },
+];
+export const WBGT_REF_LINES = WBGT_LEVELS.slice(1, 4).map((l) => ({ value: l.minC, color: l.hex, label: `WBGT ${l.minC} °C` }));
+export const hasWbgt = (w) => w?.wbgt != null && Number.isFinite(w.wbgt.c);
+// Nivel de calor que usa la exposición: WBGT estimado si existe, si no sensación térmica
+export function heatLevel(w) {
+  if (hasWbgt(w)) {
+    const lv = WBGT_LEVELS[Math.max(0, Math.min(4, w.wbgt.level))];
+    return { source: 'wbgt', level: lv.level, label: lv.label, hex: lv.hex, valueC: w.wbgt.c };
+  }
+  const cat = hiCategory(w.env.hi);
+  return { source: 'hi', level: cat?.level ?? 0, label: cat?.label ?? 'Normal', hex: cat?.hex, valueC: w.env.hi };
+}
+export const workerHeatFactor = (w) => HEAT_FACTOR[heatLevel(w).level];
 // Factor de movimiento: quieto 0,75 · índice máximo 1,25
 export const moveFactor = (mov01) => 0.75 + 0.5 * clamp(mov01);
 // Factor personal según el índice de masa corporal (IMC = peso ÷ altura²). NIOSH menciona la obesidad como
@@ -40,7 +64,9 @@ export function personalFactor(heightCm, weightKg) {
 }
 
 // Exposición que suma cada minuto, en % del límite
-export const loadRate = (hiC, mov01, th, personal = 1) => (100 * heatFactor(hiC) * moveFactor(mov01) * personal) / th.loadLimit;
+// level: nivel de calor (0–4) del WBGT estimado; null = usar la categoría del Heat Index
+export const loadRate = (hiC, mov01, th, personal = 1, level = null) =>
+  (100 * (level != null ? HEAT_FACTOR[level] : heatFactor(hiC)) * moveFactor(mov01) * personal) / th.loadLimit;
 // Recuperación por minuto de pausa: una pausa completa devuelve la exposición de 100 % a 0 %
 export const recoveryRate = (th) => 100 / th.pauseMinutes;
 // Minutos de trabajo hasta el límite, con un factor de calor dado, movimiento medio y factor personal
@@ -68,9 +94,10 @@ export function computeStatus({ load, resting, pauseElapsed, pauseReq }, th, pre
 
 export function mainReason(w) {
   if (w.pauseReq?.source === 'supervisor') return 'Pausa solicitada por el supervisor';
-  const f = heatFactor(w.env.hi);
-  const cat = hiCategory(w.env.hi);
-  return `Exposición ${Math.round(w.load)} % · sensación térmica (Heat Index) ${cat ? cat.label.toLowerCase() : '—'} (×${f}) · movimiento ${Math.round(w.activity * 100)} (${w.activity < 0.34 ? 'bajo' : w.activity < 0.67 ? 'medio' : 'alto'})`;
+  const h = heatLevel(w);
+  const f = HEAT_FACTOR[h.level];
+  const fuente = h.source === 'wbgt' ? `WBGT estimado ${h.valueC.toFixed(1)} °C` : 'sensación térmica (Heat Index)';
+  return `Exposición ${Math.round(w.load)} % · ${fuente} ${h.label.toLowerCase()} (×${f}) · movimiento ${Math.round(w.activity * 100)} (${w.activity < 0.34 ? 'bajo' : w.activity < 0.67 ? 'medio' : 'alto'})`;
 }
 
 // Colores y textos (los mismos que muestra el LED del clip)

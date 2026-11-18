@@ -10,6 +10,8 @@ import SourceBadge from '../components/SourceBadge';
 import PauseBadge from '../components/PauseBadge';
 import { movDetail } from '../lib/format';
 import { useStableOrder } from '../hooks/useStableOrder';
+import WbgtBadge from '../components/WbgtBadge';
+import { hasWbgt, heatLevel } from '../lib/risk';
 
 const FILTERS = [
   ['all', 'Todos'], ['descanso', 'Toca descanso'], ['cansancio', 'Cansancio'], ['normal', 'Óptimo'], ['pausa', 'En pausa'], ['offline', 'Sin señal'],
@@ -31,7 +33,7 @@ export default function Workers() {
       else if (filter !== 'all' && workerStatus(w) !== filter) return false;
       return true;
     });
-    const by = { load: (a, b) => b.load - a.load, hi: (a, b) => b.env.hi - a.env.hi, name: (a, b) => a.name.localeCompare(b.name) };
+    const by = { load: (a, b) => b.load - a.load, hi: (a, b) => heatLevel(b).valueC - heatLevel(a).valueC, name: (a, b) => a.name.localeCompare(b.name) };
     l = l.sort(by[sort]);
     // El trabajador con el clip real va siempre primero, aunque no calce con los filtros
     const pinned = workers.filter((w) => liveIds.includes(w.id));
@@ -60,7 +62,7 @@ export default function Workers() {
             Ordenar por
             <select className="form-select" value={sort} onChange={(e) => setSort(e.target.value)}>
               <option value="load">Exposición</option>
-              <option value="hi">Sensación térmica (Heat Index)</option>
+              <option value="hi">WBGT estimado</option>
               <option value="name">Nombre</option>
             </select>
           </label>
@@ -77,7 +79,7 @@ export default function Workers() {
         <table className="w-full">
           <thead className="border-b border-line bg-surface-2/50">
             <tr>
-              <th className="th-c">Trabajador</th><th className="th-c">Ambiente · sensación térmica (HI)</th><th className="th-c">Movimiento</th>
+              <th className="th-c">Trabajador</th><th className="th-c">Ambiente · WBGT estimado</th><th className="th-c">Movimiento</th>
               <th className="th-c">Exposición acumulada</th><th className="th-c">Estado</th><th className="th-c">Clip</th><th className="th-c" />
             </tr>
           </thead>
@@ -95,7 +97,14 @@ export default function Workers() {
                   </td>
                   <td className="td-c">
                     <p>{w.env.t.toFixed(1)} °C · {Math.round(w.env.rh)} %</p>
-                    <div className="flex items-center gap-1.5 mt-1 flex-wrap"><span className="text-xs text-slate-600">{w.env.hi.toFixed(1)} °C</span><HeatIndexBadge hi={w.env.hi} /></div>
+                    {hasWbgt(w) ? (
+                      <>
+                        <div className="flex items-center gap-1.5 mt-1 flex-wrap"><span className="text-xs text-slate-600">WBGT {w.wbgt.c.toFixed(1)} °C</span><WbgtBadge wbgt={w.wbgt} /></div>
+                        <p className="text-[11px] text-slate-400 mt-0.5">sensación térmica (HI) {w.env.hi.toFixed(1)} °C</p>
+                      </>
+                    ) : (
+                      <div className="flex items-center gap-1.5 mt-1 flex-wrap"><span className="text-xs text-slate-600">HI {w.env.hi.toFixed(1)} °C</span><HeatIndexBadge hi={w.env.hi} /></div>
+                    )}
                   </td>
                   <td className="td-c whitespace-nowrap">{movDetail(w.activity * 100)}</td>
                   <td className="td-c">

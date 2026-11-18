@@ -1,8 +1,8 @@
 // Pruebas del modelo de carga, la simulación y la integración con un clip real.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createState, step, advance, orderPause, cancelPause, pressButton } from './simulation.js';
-import { DEFAULT_THRESHOLDS, computeStatus, loadRate, recoveryRate, heatFactor } from './risk.js';
+import { createState, step, advance, applyWbgt, orderPause, cancelPause, pressButton } from './simulation.js';
+import { DEFAULT_THRESHOLDS, computeStatus, loadRate, recoveryRate, heatFactor, heatLevel, HEAT_FACTOR } from './risk.js';
 import { heatIndexC } from './heatIndex.js';
 import { decodeTelemetry, encodeTelemetry, STATE } from './telemetry.js';
 
@@ -207,4 +207,19 @@ test('velocidad: advance con 0 pasos no mueve el reloj; con n pasos avanza n min
   const s0 = createState(th, 0);
   assert.equal(advance(s0, th, 0, [], 0).state.clock, s0.clock);
   assert.equal(advance(s0, th, 0, [], 10).state.clock, s0.clock + 10);
+});
+
+test('WBGT estimado: define el factor de calor; sin dato vuelve la sensación térmica', () => {
+  const th = DEFAULT_THRESHOLDS;
+  assert.equal(loadRate(25, 0.5, th, 1, 4), (100 * HEAT_FACTOR[4] * 1) / th.loadLimit);
+  assert.equal(loadRate(25, 0.5, th, 1, null), (100 * heatFactor(25) * 1) / th.loadLimit);
+  let s = createState(th, 0);
+  s = { ...s, workers: s.workers.map((w) => ({ ...w, load: 10, resting: false, pauseReq: null })) };
+  const conWbgt = applyWbgt(s, { w1: { c: 32, level: 4, label: 'Peligro' } });
+  assert.equal(heatLevel(conWbgt.workers[0]).source, 'wbgt');
+  assert.equal(heatLevel(conWbgt.workers[1]).source, 'hi');
+  const a = step(conWbgt, th, 0).state.workers[0];
+  const b = step(applyWbgt(s, { w1: { c: 18, level: 0, label: 'Casi seguro' } }), th, 0).state.workers[0];
+  assert.ok(a.load > b.load, 'con WBGT en peligro la exposición sube más');
+  assert.equal(a.history.at(-1).wbgt, 32);
 });

@@ -50,6 +50,7 @@ export function AppProvider({ children }) {
   const isSupervisor = user?.role === 'supervisor' || user?.role === 'admin';
   const isAdmin = user?.role === 'admin' || !!user?.demo;
   const [usersVersion, setUsersVersion] = useState(0);
+  const [wbgtStatus, setWbgtStatus] = useState(null);   // estado del motor WBGT del servidor
   const serverMode = !!token && isSupervisor;   // la simulación corre en el servidor y la comparten todos
   const [server, setServer] = useState({ status: 'off', error: null }); // conexión en tiempo real con el servidor
   const [thresholds, setThresholdsLocal] = useState(() => ({ ...DEFAULT_THRESHOLDS, ...load('hg_thresholds', {}) }));
@@ -160,7 +161,7 @@ export function AppProvider({ children }) {
       simfull: (d) => {
         const { ctl, ...st } = d;
         simRef.current = st; setSim(st);
-        setRunningLocal(ctl.running); setSpeedLocal(ctl.speed); setHeatOffsetLocal(ctl.heatOffset);
+        setRunningLocal(ctl.running); setSpeedLocal(ctl.speed); setHeatOffsetLocal(ctl.heatOffset); setWbgtStatus(ctl.wbgt ?? null);
         simTicks.current = 0;
       },
       sim: (d) => {
@@ -170,7 +171,7 @@ export function AppProvider({ children }) {
         const siteHistory = [...prev.siteHistory, ...d.sitePoints].slice(-HISTORY_KEEP);
         simRef.current = { ...prev, clock: d.clock, workers, alerts: d.alerts, events: d.events, spare: d.spare, nextAlertId: d.nextAlertId, siteHistory };
         setSim(simRef.current);
-        setRunningLocal(d.ctl.running); setSpeedLocal(d.ctl.speed); setHeatOffsetLocal(d.ctl.heatOffset);
+        setRunningLocal(d.ctl.running); setSpeedLocal(d.ctl.speed); setHeatOffsetLocal(d.ctl.heatOffset); setWbgtStatus(d.ctl.wbgt ?? null);
         simTicks.current += 1;
         if (simTicks.current > 3 && d.toasts?.length) toastRef.current?.(d.toasts);
       },
@@ -329,7 +330,7 @@ export function AppProvider({ children }) {
   const liveIds = useMemo(() => liveClips.map((l) => l.workerId), [liveClips]);
 
   const value = {
-    user, token, isAdmin, usersVersion, login, loginDemo, logout, server, remote, liveClips, liveIds,
+    user, token, isAdmin, usersVersion, wbgtStatus, login, loginDemo, logout, server, remote, liveClips, liveIds,
     theme, toggleTheme: () => setTheme((t) => (t === 'dark' ? 'light' : 'dark')),
     sim, workers: sim.workers, alerts: sim.alerts, clock: sim.clock, siteHistory: sim.siteHistory, events: sim.events,
     thresholds, setThresholds,

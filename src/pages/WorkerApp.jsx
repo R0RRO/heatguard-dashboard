@@ -48,6 +48,7 @@ export default function WorkerApp() {
   const thRef = useRef(DEFAULT_THRESHOLDS);
   const profRef = useRef(seed ? { heightCm: seed.heightCm, weightKg: seed.weightKg } : null);
   const [th, setTh] = useState(DEFAULT_THRESHOLDS);
+  const [heat, setHeat] = useState(null);   // nivel de calor del WBGT estimado (servidor)
 
   useEffect(() => { const id = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(id); }, []);
 
@@ -85,6 +86,7 @@ export default function WorkerApp() {
       },
       config: (c) => { thRef.current = { ...thRef.current, ...c }; setTh(thRef.current); if (linkRef.current?.connected) sendConfig(linkRef.current, thRef.current); },
       profile: (p) => { profRef.current = p; if (linkRef.current?.connected) sendPersonal(linkRef.current, p); },
+      heat: (h) => setHeat(h.source === 'wbgt' ? h : null),
       command: (c) => {
         if (linkRef.current?.connected) linkRef.current.send(c.cmd, c.arg);
         const txt = { [COMMAND.pauseRequest]: 'El supervisor pidió una pausa de hidratación y descanso.', [COMMAND.cancelPauseRequest]: 'El supervisor retiró la solicitud de pausa.', [COMMAND.identify]: 'El supervisor está ubicando tu clip.' }[c.cmd];
@@ -160,7 +162,9 @@ export default function WorkerApp() {
           <div className="grid grid-cols-2 gap-3">
             {tile(Thermometer, 'Temperatura', m.env.ok ? `${m.env.tempC.toFixed(1)} °C` : 'sin sensor')}
             {tile(Droplets, 'Humedad', m.env.ok ? `${Math.round(m.env.rhPct)} %` : 'sin sensor')}
-            {tile(Flame, `Sensación térmica${cat ? ` · ${cat.label}` : ''}`, hi != null ? `${hi.toFixed(1)} °C` : '—')}
+            {heat
+              ? tile(Flame, 'Nivel de calor', heat.label)
+              : tile(Flame, `Sensación térmica${cat ? ` · ${cat.label}` : ''}`, hi != null ? `${hi.toFixed(1)} °C` : '—')}
             {tile(Activity, 'Movimiento', m.motion.ok ? movLevel(m.motion.index) : 'sin sensor')}
             {tile(BatteryMedium, 'Batería del clip', `${m.battery.pct} %`)}
             {tile(Signal, 'Señal', signalLevel(m.rssi))}

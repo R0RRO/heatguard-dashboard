@@ -7,9 +7,9 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import zlib from 'node:zlib';
-import { createState, advance, SPEED_MIN, SPEED_MAX, orderPause, cancelPause, pressButton, ackAlert, resolveAlert, setProfile } from '../src/lib/simulation.js';
+import { createState, advance, applyWbgt, SPEED_MIN, SPEED_MAX, orderPause, cancelPause, pressButton, ackAlert, resolveAlert, setProfile } from '../src/lib/simulation.js';
 import { displayStatus } from '../src/lib/risk.js';
-import { ZONES, WORKER_SEEDS } from '../src/data/seed.js';
+import { ZONES, WORKER_SEEDS, SITE } from '../src/data/seed.js';
 
 const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DIST = process.env.HG_DIST || path.join(RAIZ, 'dist');
@@ -120,7 +120,7 @@ function reenviarComando(workerId, cmd, arg = 0) {
   pendientes[workerId] = pendientes[workerId].slice(-20);
   return false;
 }
-const COMANDO = { pauseRequest: 2, identify: 5, cancelPauseRequest: 6 };
+const COMANDO = { pauseRequest: 2, identify: 5, cancelPauseRequest: 6, wbgtLevel: 11 };
 const enVivo = (id) => vivos[id] && vivos[id].link !== 'off';
 
 // ───────── Simulación de la cuadrilla (la misma para todos los paneles y la app) ─────────
@@ -143,7 +143,7 @@ function aplicarNombres() {
   sim.state = { ...sim.state, workers: sim.state.workers.map((w) => ({ ...w, name: nombre(w) })) };
 }
 nuevaSim();
-const simCtl = () => ({ running: sim.running, speed: sim.speed, heatOffset: sim.heatOffset });
+const simCtl = () => ({ running: sim.running, speed: sim.speed, heatOffset: sim.heatOffset, wbgt: wb.status });
 const sinHistoria = (w) => { const { history, ...resto } = w; return { ...resto, points: sim.lastSteps ? history.slice(-sim.lastSteps) : [] }; };
 function simDelta(toasts) {
   const st = sim.state;
@@ -160,6 +160,7 @@ function simLite() {   // versión condensada para la app Android
     workers: st.workers.map((w) => ({
       id: w.id, name: w.name, trade: w.trade, crew: w.crew, zone: zona[w.zoneId] || '', status: displayStatus(w),
       load: Math.round(w.load), ok: !!w.env.ok, t: r1(w.env.t), rh: Math.round(w.env.rh ?? 0), hi: r1(w.env.hi),
+      wbgt: w.wbgt ? r1(w.wbgt.c) : null, wbgtLevel: w.wbgt ? w.wbgt.level : null, wbgtLabel: w.wbgt ? w.wbgt.label : null,
       mov: Math.round((w.activity || 0) * 100), bat: Math.round(w.battery ?? 0), sig: Number.isFinite(w.signal) ? Math.round(w.signal) : null,
       real: w.source === 'clip', req: !!w.pauseReq, reqSup: w.pauseReq?.source === 'supervisor',
       pauseMin: w.resting && w.pauseStart != null ? st.clock - w.pauseStart : null, pauses: w.pausesToday,
@@ -192,9 +193,81 @@ setInterval(() => {
   sim.state = r.state;
   sim.lastSteps = pasos;
   sim.ticks += pasos;
+  actualizarWbgt();
   if (pasos === 0 && !live.length) return;   // nada cambió en este intervalo
   emitirSim(sim.ticks > 6 ? r.toasts : []);
 }, 1500);
+
+// ───────── WBGT estimado (motor Python, motor_termico_python/integracion/servicio_wbgt.py) ─────────
+// En cada ciclo se envía la temperatura y humedad de toda la cuadrilla; el WBGT que vuelve define el factor
+// de calor de la exposición (simulados aquí; clips reales con el comando 11). Sin servicio o sin meteorología,
+// se usa la sensación térmica como respaldo.
+const WBGT_URL = process.env.HG_WBGT_URL || 'http://127.0.0.1:8790';
+const WBGT_KEY = process.env.HG_WBGT_KEY || '';
+const wb = { status: WBGT_KEY ? 'iniciando' : 'desactivado', byId: {}, okAt: 0, pending: false, sent: {} };
+
+// Fecha y hora de Santiago para un minuto del reloj simulado (hoy), en ISO UTC
+function horaSantiago(minutosDia) {
+  const ahora = new Date();
+  const p = Object.fromEntries(new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Santiago', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+    .formatToParts(ahora).map((x) => [x.type, x.value]));
+  const localComoUtc = Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute);
+  const offsetMin = Math.round((localComoUtc - ahora.getTime()) / 60000);   // ej. −180 en verano
+  const m = ((minutosDia % 1440) + 1440) % 1440;
+  return new Date(Date.UTC(+p.year, +p.month - 1, +p.day) + (m - offsetMin) * 60000).toISOString();
+}
+
+async function actualizarWbgt() {
+  if (!WBGT_KEY || wb.pending || !sim.state) return;
+  wb.pending = true;
+  const ahoraIso = new Date().toISOString();
+  const simIso = horaSantiago(sim.state.clock);
+  const items = sim.state.workers.filter((w) => Number.isFinite(w.env?.t) && Number.isFinite(w.env?.rh)).map((w) => ({
+    id: w.id, tempC: Math.round(w.env.t * 10) / 10, rhPct: Math.round(w.env.rh),
+    timestamp: w.source === 'clip' ? ahoraIso : simIso,   // el clip real usa la hora real; la simulación, su reloj
+  }));
+  try {
+    const res = await fetch(`${WBGT_URL}/v1/wbgt/lote`, {
+      method: 'POST', headers: { 'content-type': 'application/json', 'x-api-key': WBGT_KEY },
+      body: JSON.stringify({ lat: SITE.center[0], lon: SITE.center[1], items }), signal: AbortSignal.timeout(10000),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const d = await res.json();
+    const byId = {};
+    for (const it of d.items || []) {
+      if (it.status === 'ok') byId[it.id] = { c: it.wbgtC, level: it.level, label: it.label, solarWm2: it.solarWm2, windMs: it.windMs };
+    }
+    const antes = wb.status;
+    wb.status = d.meteo?.status === 'ok' ? 'ok' : 'sin_meteorologia';
+    if (antes !== wb.status) log('WBGT:', wb.status, d.meteo?.detail || '');
+    wb.byId = byId;
+    if (Object.keys(byId).length) wb.okAt = Date.now();
+  } catch (e) {
+    if (wb.status !== 'caido') log('WBGT: servicio no disponible,', e.message);
+    wb.status = 'caido';
+  } finally {
+    wb.pending = false;
+  }
+  if (Date.now() - wb.okAt > 120000) wb.byId = {};   // datos viejos: vuelve la sensación térmica
+  sim.state = applyWbgt(sim.state, wb.byId);
+  enviarNivelAClips();
+}
+
+// Clips reales: el firmware usa el nivel WBGT que le llega (comando 11, arg = nivel + 1; 0 = sensación térmica)
+function enviarNivelAClips() {
+  const ahora = Date.now();
+  for (const [id, v] of Object.entries(vivos)) {
+    if (v.link === 'off') continue;
+    const dato = wb.byId[id];
+    const arg = dato ? dato.level + 1 : 0;
+    const prev = wb.sent[id];
+    if (prev && prev.arg === arg && ahora - prev.at < 60000) continue;
+    if (aTrabajador(id, 'command', { cmd: COMANDO.wbgtLevel, arg, at: ahora })) {
+      wb.sent[id] = { arg, at: ahora };
+      aTrabajador(id, 'heat', dato ? { source: 'wbgt', wbgtC: dato.c, level: dato.level, label: dato.label } : { source: 'hi' });
+    }
+  }
+}
 
 // ───────── HTTP ─────────
 function json(res, code, datos) {
@@ -346,7 +419,7 @@ async function api(req, res, url) {
         break;
       case 'ackAlert': sim.state = ackAlert(sim.state, Number(b.alertId)); break;
       case 'resolveAlert': sim.state = resolveAlert(sim.state, Number(b.alertId)); break;
-      case 'reset': nuevaSim(); break;
+      case 'reset': nuevaSim(); sim.state = applyWbgt(sim.state, wb.byId); break;
       case 'control':
         // controles de la simulación (para demostrar el sistema): supervisor y admin
         if (typeof b.running === 'boolean') sim.running = b.running;

@@ -12,6 +12,7 @@ import { fmtClock } from '../lib/format';
 import { hiCategory, HI_REF_LINES } from '../lib/heatIndex';
 import { BUTTON_EVENT } from '../lib/buttonEvents';
 import { useStableOrder } from '../hooks/useStableOrder';
+import { WBGT_LEVELS, WBGT_REF_LINES } from '../lib/risk';
 
 export default function Dashboard() {
   const { workers, alerts, siteHistory, clock, thresholds, orderPause, cancelPause, events, liveIds } = useApp();
@@ -22,6 +23,7 @@ export default function Dashboard() {
   const online = workers.filter((w) => w.online).length;
   const last = siteHistory[siteHistory.length - 1];
   const hiCat = hiCategory(last.hi);
+  const wbgtLabel = (c) => [...WBGT_LEVELS].reverse().find((l) => c >= l.minC).label;
   const pausesToday = workers.reduce((a, w) => a + w.pausesToday, 0);
 
   const firstPinned = (a, b) => isLive(b.id) - isLive(a.id);
@@ -58,7 +60,9 @@ export default function Dashboard() {
         <KpiCard icon={BatteryMedium} label="Con cansancio" value={count.cansancio} tone="heat" hint={`exposición ≥ ${thresholds.tiredPct} %`} />
         <KpiCard icon={Coffee} label="En pausa" value={count.pausa} tone="blue" hint={`${pausesToday} pausas completadas hoy`} />
         <KpiCard icon={Thermometer} label="Temp. del aire" value={last.temp.toFixed(1)} unit="°C" tone="heat" hint={`humedad ${Math.round(last.rh)}%`} />
-        <KpiCard icon={Gauge} label="Sensación térmica (Heat Index)" value={last.hi.toFixed(1)} unit="°C" tone="heat" hint={`${hiCat.label} · indicador auxiliar`} />
+        {Number.isFinite(last.wbgt)
+          ? <KpiCard icon={Gauge} label="WBGT estimado (obra)" value={last.wbgt.toFixed(1)} unit="°C" tone="heat" hint={`${wbgtLabel(last.wbgt)} · sensación térmica ${last.hi.toFixed(1)} °C`} />
+          : <KpiCard icon={Gauge} label="Sensación térmica (Heat Index)" value={last.hi.toFixed(1)} unit="°C" tone="heat" hint={`${hiCat.label} · sin WBGT estimado`} />}
       </div>
 
       <div className="grid lg:grid-cols-3 gap-6">
@@ -73,10 +77,10 @@ export default function Dashboard() {
             ]} />
           </div>
           <div>
-            <h2 className="section-heading mb-2">Temperatura del aire y sensación térmica (Heat Index) de la obra</h2>
+            <h2 className="section-heading mb-2">Temperatura, sensación térmica y WBGT estimado de la obra</h2>
             <LineChart data={siteHistory} yDomain={[15, 55]}
-              lines={[{ key: 'temp', label: 'Temp. del aire', color: '#f97316', unit: ' °C' }, { key: 'hi', label: 'Sensación térmica (Heat Index)', color: '#7c3aed', unit: ' °C' }]}
-              refLines={HI_REF_LINES} />
+              lines={[{ key: 'temp', label: 'Temp. del aire', color: '#f97316', unit: ' °C' }, { key: 'hi', label: 'Sensación térmica (Heat Index)', color: '#7c3aed', unit: ' °C' }, { key: 'wbgt', label: 'WBGT estimado', color: '#dc2626', unit: ' °C', dashed: true }]}
+              refLines={Number.isFinite(last.wbgt) ? WBGT_REF_LINES : HI_REF_LINES} />
           </div>
         </div>
 

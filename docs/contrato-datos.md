@@ -111,7 +111,7 @@ Paquete de telemetría (little-endian, 20 bytes; cabe en una notificación sin n
 | Byte | Tipo | Campo |
 |---|---|---|
 | 0 | uint8 | versión (2) |
-| 1 | uint8 | banderas: bit 0 ambiente ok, bit 1 movimiento ok, bit 2 botón presionado, bit 3 pausa pedida por el supervisor |
+| 1 | uint8 | banderas: bit 0 ambiente ok, bit 1 movimiento ok, bit 2 botón presionado, bit 3 pausa pedida por el supervisor, bit 4 el factor de calor viene del WBGT estimado (comando 11) |
 | 2 | uint16 | secuencia |
 | 4 | int16 | temperatura en centésimas de °C |
 | 6 | uint16 | humedad en centésimas de % |
@@ -137,11 +137,17 @@ Comandos del panel al clip:
 | 8 Umbral de cansancio | % (30–95) | Cambia cuándo pasa a amarillo. |
 | 9 Pausa automática | 1 sí / 0 no | Si el clip pide la pausa solo al llegar al 100 %. |
 | 10 Factor personal | factor × 100 (50–200) | Factor del trabajador asignado (por ejemplo, 110 = ×1,1). Altura y peso no salen del panel. |
+| 11 Nivel WBGT | nivel + 1 (1–5); 0 = sin dato | Nivel de WBGT estimado por el servidor (motor Python, modelo de Ono con meteorología Open-Meteo). El clip lo usa como factor de calor durante 10 min; si no se renueva, vuelve a su Heat Index. |
 
 Al conectarse, y cada vez que cambia la configuración en la página «Pausas», el panel envía los
 comandos 4, 7, 8 y 9; al conectarse, al asignar el clip y al editar al trabajador, el 10. El clip guarda
 la configuración en su memoria y la conserva aunque se apague. Sin configuración previa usa sus valores
 por defecto (120, 70 %, 15 min, sí, ×1).
+
+Con el servidor, el comando 11 llega al clip a través del celular del trabajador cada vez que cambia el
+nivel y al menos una vez por minuto. Niveles de WBGT (°C): 0 casi seguro (<21), 1 atención (21–25),
+2 advertencia (25–28), 3 advertencia severa (28–31), 4 peligro (≥31); factores ×1, ×1,5, ×2, ×3 y ×4.
+Es una estimación de modelo con meteorología regional, no WBGT/TGBH medido ni ISO 7243.
 
 ## Reconexión
 

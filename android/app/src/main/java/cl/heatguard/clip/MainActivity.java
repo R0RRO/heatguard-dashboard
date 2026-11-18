@@ -233,7 +233,7 @@ public class MainActivity extends Activity {
         GridLayout grid = new GridLayout(this);
         grid.setColumnCount(2);
         tTemp = tile(grid, "Temperatura"); tHum = tile(grid, "Humedad");
-        tHi = tile(grid, "Sensación térmica"); tMov = tile(grid, "Movimiento");
+        tHi = tile(grid, "Sensación térmica"); tHiTitle = lastTileTitle; tMov = tile(grid, "Movimiento");
         tBat = tile(grid, "Batería del clip"); tSig = tile(grid, "Señal");
         c.addView(grid);
         space(c, 12);
@@ -270,10 +270,14 @@ public class MainActivity extends Activity {
         ui.post(tick);
     }
 
+    private TextView lastTileTitle;
+    private TextView tHiTitle;
+
     private TextView tile(GridLayout g, String label) {
         LinearLayout t = column(10);
         t.setBackground(rounded(CARD, 12));
-        t.addView(text(label, 12, MUTED, false));
+        lastTileTitle = text(label, 12, MUTED, false);
+        t.addView(lastTileTitle);
         TextView v = text("—", 20, INK, true);
         t.addView(v);
         GridLayout.LayoutParams lp = new GridLayout.LayoutParams(GridLayout.spec(GridLayout.UNDEFINED), GridLayout.spec(GridLayout.UNDEFINED, 1f));
@@ -311,7 +315,12 @@ public class MainActivity extends Activity {
             boolean envOk = env != null && env.optBoolean("ok");
             tTemp.setText(envOk ? String.format(Locale.US, "%.1f °C", env.optDouble("tempC")) : "sin sensor");
             tHum.setText(envOk ? Math.round(env.optDouble("rhPct")) + " %" : "sin sensor");
-            tHi.setText(envOk && !env.isNull("heatIndexC") ? String.format(Locale.US, "%.1f °C", env.optDouble("heatIndexC")) : "—");
+            String heat = ClipService.heatLabel;
+            if (heat != null) { tHiTitle.setText("Nivel de calor"); tHi.setText(heat); }
+            else {
+                tHiTitle.setText("Sensación térmica");
+                tHi.setText(envOk && !env.isNull("heatIndexC") ? String.format(Locale.US, "%.1f °C", env.optDouble("heatIndexC")) : "—");
+            }
             JSONObject mov = m.optJSONObject("motion");
             tMov.setText(mov != null && mov.optBoolean("ok") ? Telemetry.movLevel(mov.optInt("index")) : "sin sensor");
             JSONObject bat = m.optJSONObject("battery");
@@ -457,7 +466,7 @@ public class MainActivity extends Activity {
     private final java.util.Map<String, SupCard> supCards = new java.util.HashMap<>();
     private String supFilter = "todos";
     // criterios de orden de la lista del supervisor (el clip real siempre va primero)
-    private static final String[][] SORTS = {{"urgencia", "Urgencia"}, {"exposicion", "Exposición"}, {"sensacion", "Sensación"}, {"nombre", "Nombre"}};
+    private static final String[][] SORTS = {{"urgencia", "Urgencia"}, {"exposicion", "Exposición"}, {"sensacion", "WBGT"}, {"nombre", "Nombre"}};
     private int supSort = 0;
     private List<String> supIds = new ArrayList<>();   // orden mostrado; se recalcula cada 10 s
     private long supSortedAt = 0;
@@ -615,7 +624,7 @@ public class MainActivity extends Activity {
             if (a.optBoolean("real") != b.optBoolean("real")) return a.optBoolean("real") ? -1 : 1;   // clip real primero
             switch (crit) {
                 case "exposicion": return b.optInt("load") - a.optInt("load");
-                case "sensacion": return Double.compare(b.optDouble("hi", -99), a.optDouble("hi", -99));
+                case "sensacion": return Double.compare(b.isNull("wbgt") ? b.optDouble("hi", -99) : b.optDouble("wbgt"), a.isNull("wbgt") ? a.optDouble("hi", -99) : a.optDouble("wbgt"));
                 case "nombre": return a.optString("name").compareToIgnoreCase(b.optString("name"));
                 default: {
                     int r = STATUS_RANK.getOrDefault(a.optString("status"), 9) - STATUS_RANK.getOrDefault(b.optString("status"), 9);
@@ -730,8 +739,11 @@ public class MainActivity extends Activity {
         sc.name.setText((real ? "● " : "") + w.optString("name"));
         sc.badge.setText(STATUS_LABEL.getOrDefault(st, st));
         sc.badge.setBackground(rounded(color, 20));
+        String calor = !w.isNull("wbgt")
+                ? String.format(Locale.US, " · WBGT %.1f °C (%s)", w.optDouble("wbgt"), w.optString("wbgtLabel").toLowerCase())
+                : String.format(Locale.US, " · sensación térmica (HI) %.1f °C", w.optDouble("hi"));
         sc.line1.setText("Exposición " + w.optInt("load") + " %"
-                + (w.optBoolean("ok") && !w.isNull("hi") ? String.format(Locale.US, " · sensación térmica (HI) %.1f °C · %.1f °C · %d %%", w.optDouble("hi"), w.optDouble("t"), w.optInt("rh")) : " · sin sensor ambiental"));
+                + (w.optBoolean("ok") && !w.isNull("hi") ? calor + String.format(Locale.US, " · %.1f °C · %d %%", w.optDouble("t"), w.optInt("rh")) : " · sin sensor ambiental"));
         sc.line2.setText(w.optString("trade") + " · " + w.optString("crew") + " · " + w.optString("zone") + "\n"
                 + "movimiento " + w.optInt("mov") + " (" + Telemetry.movLevel(w.optInt("mov")).toLowerCase() + ") · batería " + w.optInt("bat") + " %" + (w.isNull("sig") ? "" : " · señal " + w.optInt("sig") + " dBm (" + Telemetry.signalLevel(w.optInt("sig")).toLowerCase() + ")")
                 + " · pausas " + w.optInt("pauses") + (real ? " · CLIP REAL" : ""));

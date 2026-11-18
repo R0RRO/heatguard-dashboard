@@ -6,6 +6,7 @@ import StatusBadge from './StatusBadge';
 import ClipLogo from './ClipLogo';
 import { LoadBar } from './Charts';
 import { movDetail } from '../lib/format';
+import { hasWbgt } from '../lib/risk';
 
 // Franja fija bajo la barra de navegación con los clips reales: visible en todas las páginas
 export default function LiveStrip() {
@@ -41,7 +42,7 @@ export default function LiveStrip() {
                 <span className="bg-white rounded-full"><StatusBadge status={st} pulse /></span>
                 <ClipLogo active={w.status} className="w-14" />
                 <span className="bg-white/95 rounded-full px-2 py-0.5 text-ink"><LoadBar load={w.load} status={st} /></span>
-                <span>{w.env.ok ? `${w.env.t.toFixed(1)} °C · ${Math.round(w.env.rh)} % · sensación térmica (HI) ${w.env.hi.toFixed(1)} °C` : 'sensor ambiental sin respuesta'}</span>
+                <span>{w.env.ok ? `${w.env.t.toFixed(1)} °C · ${Math.round(w.env.rh)} % · ${hasWbgt(w) ? `WBGT ${w.wbgt.c.toFixed(1)} °C (${w.wbgt.label.toLowerCase()})` : `sensación térmica (HI) ${w.env.hi.toFixed(1)} °C`}` : 'sensor ambiental sin respuesta'}</span>
                 <span>movimiento {movDetail(w.activity * 100)}</span>
                 <span className="text-emerald-100 ml-auto">{c.via === 'celular' ? 'vía celular · ' : ''}lectura hace {age} s</span>
               </>

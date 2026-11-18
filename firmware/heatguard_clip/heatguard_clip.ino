@@ -62,7 +62,12 @@ const uint32_t AVISO_CADA_MS = 40000;      // repetir la vibración de "toca des
 const uint32_t PRUEBA_MS = 20000;          // tras un comando del panel de pruebas, no tocar LED ni motor
 const float EXPOSICION_MAX = 150.0f;            // tope mientras se espera que el trabajador comience la pausa
 const float HISTERESIS_CANSANCIO = 5.0f;   // puntos bajo el umbral para volver de amarillo a verde
-const float FACTOR_CALOR[] = {1.0f, 1.5f, 2.0f, 3.0f, 4.0f};   // por categoría del Heat Index (0–4)
+const float FACTOR_CALOR[] = {1.0f, 1.5f, 2.0f, 3.0f, 4.0f};   // por nivel de calor (0–4)
+// Nivel de WBGT estimado que envía el servidor (motor Python, comando 11). Si no llega en 10 min,
+// el clip vuelve a usar la categoría de su Heat Index.
+const uint32_t VIGENCIA_WBGT_MS = 10UL * 60000UL;
+int8_t nivelWbgt = -1;            // −1 = sin dato
+uint32_t tNivelWbgt = 0;
 
 uint8_t limiteExposicion = 120;                 // minutos-equivalentes para llegar al 100 %
 uint8_t umbralCansancio = 70;              // % de exposición para pasar a amarillo
@@ -85,8 +90,9 @@ Preferences prefs;                         // la configuración recibida se guar
 
 const uint8_t CONTRATO_VERSION = 2;
 enum Comando : uint8_t { CMD_SOLICITAR_PAUSA = 2, CMD_MINUTOS_PAUSA = 4, CMD_UBICAR = 5, CMD_RETIRAR_PAUSA = 6,
-                         CMD_LIMITE_EXPOSICION = 7, CMD_UMBRAL_CANSANCIO = 8, CMD_PAUSA_AUTOMATICA = 9, CMD_FACTOR_PERSONAL = 10 };
-enum Bandera : uint8_t { F_AMBIENTE_OK = 1, F_MOVIMIENTO_OK = 2, F_BOTON = 4, F_PEDIDA_SUPERVISOR = 8 };
+                         CMD_LIMITE_EXPOSICION = 7, CMD_UMBRAL_CANSANCIO = 8, CMD_PAUSA_AUTOMATICA = 9, CMD_FACTOR_PERSONAL = 10,
+                         CMD_NIVEL_WBGT = 11 };
+enum Bandera : uint8_t { F_AMBIENTE_OK = 1, F_MOVIMIENTO_OK = 2, F_BOTON = 4, F_PEDIDA_SUPERVISOR = 8, F_CALOR_WBGT = 16 };
 enum Estado : uint8_t { OPTIMO = 0, CANSANCIO = 1, DESCANSO = 2, EN_PAUSA = 3, PAUSA_CUMPLIDA = 4 };
 const char *NOMBRE_ESTADO[] = {"optimo", "cansancio", "TOCA DESCANSO", "en pausa", "PAUSA CUMPLIDA"};
 
@@ -347,7 +353,9 @@ bool leerHTU(uint8_t cmd, uint16_t &raw) {
 }
 
 // ───────── Exposición y estado ─────────
+bool usaWbgt() { return nivelWbgt >= 0 && millis() - tNivelWbgt < VIGENCIA_WBGT_MS; }
 float factorCalor() {
+  if (usaWbgt()) return FACTOR_CALOR[nivelWbgt];
   if (!ambienteOk) return FACTOR_CALOR[0];
   return FACTOR_CALOR[hgCategoria(heatIndex)];
 }
@@ -411,7 +419,8 @@ void enviarTelemetria(uint32_t ahora) {
   Telemetria t;
   t.version = CONTRATO_VERSION;
   t.banderas = (ambienteOk ? F_AMBIENTE_OK : 0) | (mpuOk ? F_MOVIMIENTO_OK : 0) | (presionado ? F_BOTON : 0)
-             | (pausaSolicitada && !pausaAuto ? F_PEDIDA_SUPERVISOR : 0);
+             | (pausaSolicitada && !pausaAuto ? F_PEDIDA_SUPERVISOR : 0)
+             | (usaWbgt() ? F_CALOR_WBGT : 0);
   t.secuencia = secuencia++;
   t.temp100 = ambienteOk ? (int16_t)lroundf(tempC * 100) : 0;
   t.hum100 = ambienteOk ? (uint16_t)constrain(lroundf(humedad * 100), 0, 10000) : 0;
@@ -446,8 +455,10 @@ void publicarAmbiente(bool ok, float t, float h, uint32_t ahora) {
   if (conectado) cBat->notify();
   enviarTelemetria(ahora);
 
-  if (ok) Serial.printf("T %.1f C | HR %.0f %% | HI %.1f C (%s x%.1f)", tempC, humedad, heatIndex, hgCategoriaNombre(hgCategoria(heatIndex)), factorCalor());
+  if (ok) Serial.printf("T %.1f C | HR %.0f %% | HI %.1f C (%s)", tempC, humedad, heatIndex, hgCategoriaNombre(hgCategoria(heatIndex)));
   else Serial.print("sensor ambiental sin respuesta");
+  if (usaWbgt()) Serial.printf(" | WBGT nivel %d x%.1f", nivelWbgt, factorCalor());
+  else Serial.printf(" | calor por HI x%.1f", factorCalor());
   if (mpuOk) Serial.printf(" | mov %u", movimiento); else Serial.print(" | MPU sin respuesta");
   Serial.printf(" | bat %.2f V %u %% | exposicion %.0f %% | %s", bateriaV, bateriaPorc, exposicion, NOMBRE_ESTADO[estado]);
   if (enPausa) Serial.printf(" %lu/%u min", (unsigned long)((ahora - tPausaInicio) / 60000), minutosPausa);
@@ -557,6 +568,10 @@ void atenderComando(uint32_t ahora) {
     case CMD_UMBRAL_CANSANCIO: umbralCansancio = constrain(arg, 30, 95); break;
     case CMD_PAUSA_AUTOMATICA: pausaAutomatica = arg != 0; break;
     case CMD_FACTOR_PERSONAL:  factorPersonal = constrain(arg, 50, 200) / 100.0f; break;
+    case CMD_NIVEL_WBGT:       // arg = nivel + 1 (1–5); 0 = volver a la sensación térmica
+      nivelWbgt = (arg >= 1 && arg <= 5) ? (int8_t)(arg - 1) : -1;
+      tNivelWbgt = ahora;
+      break;
     case CMD_UBICAR:
       vibrarPulsos(3, 150, 150, 255);
       destello(255, 255, 255, 300, 2400);

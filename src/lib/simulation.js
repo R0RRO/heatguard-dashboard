@@ -84,7 +84,10 @@ function buildSiteSnapshot(state, heatOffset = 0) {
   const c = { normal: 0, cansancio: 0, descanso: 0, pausa: 0 };
   state.workers.forEach((w) => { c[w.status === 'finPausa' ? 'pausa' : w.status]++; });
   const clim = baseClimate(state.clock, heatOffset);
-  return { clock: state.clock, temp: clim.t, rh: clim.rh, hi: heatIndexC(clim.t, clim.rh), ...c };
+  // WBGT estimado de la obra: promedio de los trabajadores con dato del motor Python
+  const ws = state.workers.filter((w) => w.wbgt != null && Number.isFinite(w.wbgt.c));
+  const wbgt = ws.length ? +(ws.reduce((a, w) => a + w.wbgt.c, 0) / ws.length).toFixed(1) : null;
+  return { clock: state.clock, temp: clim.t, rh: clim.rh, hi: heatIndexC(clim.t, clim.rh), wbgt, ...c };
 }
 
 // Botón del clip mantenido 2 s: en pausa → la termina; si no → la comienza (solicitada o voluntaria).
@@ -114,7 +117,8 @@ function tickWorker(w, clock, th, heatOffset, { silent = false, live = null } = 
 
   // Exposición acumulada: sube con calor y movimiento; baja solo durante la pausa
   const personal = personalFactor(w.heightCm, w.weightKg);
-  let load = w.resting ? Math.max(0, w.load - recoveryRate(th)) : Math.min(LOAD_MAX, w.load + loadRate(hi, activity, th, personal));
+  const wbgtLevel = w.wbgt != null && Number.isFinite(w.wbgt.c) ? w.wbgt.level : null;   // WBGT estimado (motor Python)
+  let load = w.resting ? Math.max(0, w.load - recoveryRate(th)) : Math.min(LOAD_MAX, w.load + loadRate(hi, activity, th, personal, wbgtLevel));
 
   let next = { ...w, source: 'sim', liveSeen: null, activity, load, env: { t, rh, hi, ok: true }, btnEvent: null, autoRequested: false };
 
@@ -154,7 +158,7 @@ function tickWorker(w, clock, th, heatOffset, { silent = false, live = null } = 
   const battery = Math.max(0, w.battery - (silent ? 0 : 0.05));
   const signal = clamp(w.signal + noise(1.2), -95, -40);
 
-  const point = { clock, temp: +t.toFixed(1), rh: Math.round(rh), hi: +hi.toFixed(1), load: Math.round(next.load), act: Math.round(activity * 100), st: next.status };
+  const point = { clock, temp: +t.toFixed(1), rh: Math.round(rh), hi: +hi.toFixed(1), wbgt: wbgtLevel != null ? w.wbgt.c : null, load: Math.round(next.load), act: Math.round(activity * 100), st: next.status };
   return {
     ...next, pos, target, battery, signal, online, offlineLeft,
     history: [...w.history, point].slice(-HISTORY), peakLoad: Math.max(w.peakLoad, next.load),
@@ -198,7 +202,7 @@ function tickLiveWorker(w, clock, th, live) {
   }
   const autoRequested = !first && status === 'descanso' && w.status !== 'descanso' && pauseReq.source === 'auto';
 
-  const point = { clock, temp: +t.toFixed(1), rh: Math.round(rh), hi: +hi.toFixed(1), load: Math.round(m.load), act: Math.round(activity * 100), st: status };
+  const point = { clock, temp: +t.toFixed(1), rh: Math.round(rh), hi: +hi.toFixed(1), wbgt: w.wbgt?.c ?? null, load: Math.round(m.load), act: Math.round(activity * 100), st: status };
   return {
     ...w, source: 'clip', liveSeen: m.pauses, activity, load: m.load, status, resting, pauseReq, autoRequested,
     pauseStart: resting ? clock - stateMin : null,
@@ -307,6 +311,12 @@ export function advance(prev, th, heatOffset, live, steps) {
     state = r.state; toasts = toasts.concat(r.toasts);
   }
   return { state, toasts };
+}
+
+// Resultados del motor WBGT (servidor): { workerId: { c, level, label, solarWm2, windMs } | null }.
+// Un trabajador sin dato (null o ausente) vuelve a usar la sensación térmica.
+export function applyWbgt(state, byId) {
+  return { ...state, workers: state.workers.map((w) => ({ ...w, wbgt: byId[w.id] || null })) };
 }
 
 // Velocidades de la simulación: minutos simulados por intervalo de 1,5 s (×1 ≈ 40 veces el tiempo real)

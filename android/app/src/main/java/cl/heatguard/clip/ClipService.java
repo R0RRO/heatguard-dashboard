@@ -64,6 +64,7 @@ public class ClipService extends Service {
     static volatile boolean streamOk = false;
     static volatile int sentOk = 0, sentFail = 0;
     static volatile String deviceName = null;
+    static volatile String heatLabel = null;   // nivel de calor del WBGT estimado (lo envía el servidor)
 
     private final Handler main = new Handler(Looper.getMainLooper());
     private final ExecutorService http = Executors.newSingleThreadExecutor();
@@ -414,6 +415,7 @@ public class ClipService extends Service {
                 }
                 case "config": config = d; main.post(this::sendConfig); break;
                 case "profile": if (workerId.equals(d.optString("workerId"))) { profile = d; main.post(this::sendProfile); } break;
+                case "heat": heatLabel = "wbgt".equals(d.optString("source")) ? d.optString("label", null) : null; break;
                 case "command": {
                     int cmd = d.optInt("cmd"), arg = d.optInt("arg");
                     send(cmd, arg);

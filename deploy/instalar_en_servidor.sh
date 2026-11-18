@@ -35,6 +35,38 @@ set -a; . deploy/credenciales.env; set +a
 node server/usuarios.js inicial
 rm -f deploy/credenciales.env
 
+# Motor WBGT (Python, motor_termico_python): servicio local con clave compartida con Node
+command -v python3 >/dev/null || { echo "Instalando python3…"; if command -v dnf >/dev/null; then sudo dnf install -y python3; else sudo apt-get install -y python3; fi; }
+PYTHON=$(command -v python3)
+# La clave va en /etc: con SELinux (Fedora), systemd no puede leer archivos de configuración en la carpeta personal
+ENVF=/etc/heatguard/wbgt.env
+sudo install -d -m 755 /etc/heatguard
+if ! sudo test -f "$ENVF"; then
+  if [ -f server/data/wbgt.env ]; then sudo cp server/data/wbgt.env "$ENVF"; rm -f server/data/wbgt.env
+  else echo "HG_WBGT_KEY=$(head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n')" | sudo tee "$ENVF" >/dev/null; fi
+fi
+sudo chmod 600 "$ENVF"
+command -v restorecon >/dev/null && sudo restorecon -R /etc/heatguard
+sudo tee /etc/systemd/system/heatguard-wbgt.service >/dev/null <<UNIT
+[Unit]
+Description=HeatGuard motor WBGT (Python)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=$(id -un)
+WorkingDirectory=$DIR/motor_termico_python
+EnvironmentFile=/etc/heatguard/wbgt.env
+Environment=HG_WBGT_PORT=8790
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=$PYTHON -m integracion.servicio_wbgt
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+
 sudo tee /etc/systemd/system/heatguard.service >/dev/null <<UNIT
 [Unit]
 Description=HeatGuard Clip (dashboard y servidor)
@@ -46,6 +78,8 @@ User=$(id -un)
 WorkingDirectory=$DIR
 Environment=PORT=$PORT
 Environment=HOST=127.0.0.1
+EnvironmentFile=/etc/heatguard/wbgt.env
+Environment=HG_WBGT_URL=http://127.0.0.1:8790
 ExecStart=$NODE server/index.js
 Restart=always
 RestartSec=3
@@ -54,11 +88,13 @@ RestartSec=3
 WantedBy=multi-user.target
 UNIT
 sudo systemctl daemon-reload
-sudo systemctl enable heatguard >/dev/null 2>&1
-sudo systemctl restart heatguard
-sleep 2
+sudo systemctl enable heatguard heatguard-wbgt >/dev/null 2>&1
+sudo systemctl restart heatguard-wbgt heatguard || true
+sleep 3
+if curl -fsS -o /dev/null http://127.0.0.1:8790/health; then echo "Motor WBGT corriendo en 127.0.0.1:8790"; else
+  echo "El motor WBGT no responde (el panel usará la sensación térmica):"; sudo journalctl -u heatguard-wbgt -n 15 --no-pager; fi
 if curl -fsS -o /dev/null "http://127.0.0.1:$PORT/"; then echo "Servicio heatguard corriendo en 127.0.0.1:$PORT"; else
-  echo "El servicio no responde. Revisa: journalctl -u heatguard -n 50"; exit 1; fi
+  echo "El servicio no responde:"; sudo journalctl -u heatguard -n 20 --no-pager; exit 1; fi
 
 # Exposición pública con https (Funnel tiene que estar habilitado para tu tailnet; si no, tailscale te da el enlace para activarlo)
 sudo tailscale funnel --bg "$PORT"

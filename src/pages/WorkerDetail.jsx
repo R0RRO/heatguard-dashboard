@@ -1,5 +1,5 @@
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, Pause, Thermometer, Gauge, Droplets, BatteryMedium, Activity, Radio, HardHat, MousePointerClick, Coffee, Timer } from 'lucide-react';
+import { ArrowLeft, Pause, Thermometer, Gauge, Droplets, BatteryMedium, Activity, Radio, HardHat, MousePointerClick, Coffee, Timer, Sun } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import StatusBadge from '../components/StatusBadge';
 import KpiCard from '../components/KpiCard';
@@ -16,6 +16,8 @@ import PauseBadge from '../components/PauseBadge';
 import ProfileCard from '../components/ProfileCard';
 import { buttonAction } from '../lib/buttonEvents';
 import { movLevel, signalDetail } from '../lib/format';
+import WbgtBadge from '../components/WbgtBadge';
+import { heatLevel, hasWbgt, HEAT_FACTOR, WBGT_REF_LINES } from '../lib/risk';
 
 export default function WorkerDetail() {
   const { workerId } = useParams();
@@ -31,7 +33,8 @@ export default function WorkerDetail() {
   const live = w.source === 'clip';
   const hiCat = hiCategory(w.env.hi);
   const personal = personalFactor(w.heightCm, w.weightKg);
-  const rate = loadRate(w.env.hi, w.activity, thresholds, personal);
+  const heat = heatLevel(w);
+  const rate = loadRate(w.env.hi, w.activity, thresholds, personal, heat.source === 'wbgt' ? heat.level : null);
   const toLimit = !w.resting && w.load < 100 ? (100 - w.load) / rate : null;
   const statusTone = { normal: 'green', cansancio: 'heat', descanso: 'red', pausa: 'blue', finPausa: 'blue', offline: 'navy' }[st];
 
@@ -69,7 +72,10 @@ export default function WorkerDetail() {
         <KpiCard icon={BatteryMedium} label="Exposición acumulada" value={Math.round(w.load)} unit="%" tone={statusTone} hint={w.resting ? 'bajando durante la pausa' : `+${rate.toFixed(1)} %/min · factor personal ×${personal.toFixed(1)}`} />
         <KpiCard icon={Timer} label="Hasta el límite" value={toLimit == null ? '—' : fmtDuration(toLimit)} tone="navy" hint={toLimit == null ? (w.resting ? 'en pausa' : 'límite alcanzado') : 'al ritmo actual'} />
         <KpiCard icon={Coffee} label="Pausas hoy" value={w.pausesToday} tone="blue" hint={w.resting ? `en pausa hace ${Math.max(0, clock - w.pauseStart)} min` : `última terminó hace ${Math.max(0, clock - w.lastPauseEnd)} min`} />
-        <KpiCard icon={Gauge} label="Sensación térmica (Heat Index)" value={w.env.hi.toFixed(1)} unit="°C" tone="heat" hint={`${hiCat.label} · factor ×${heatFactor(w.env.hi)}`} />
+        {hasWbgt(w)
+          ? <KpiCard icon={Sun} label="WBGT estimado (modelo Ono)" value={w.wbgt.c.toFixed(1)} unit="°C" tone="heat" hint={`${w.wbgt.label} · factor ×${HEAT_FACTOR[w.wbgt.level]} · radiación ${w.wbgt.solarWm2} W/m² · viento ${w.wbgt.windMs} m/s (Open-Meteo)`} />
+          : null}
+        <KpiCard icon={Gauge} label="Sensación térmica (Heat Index)" value={w.env.hi.toFixed(1)} unit="°C" tone="heat" hint={hasWbgt(w) ? `${hiCat.label} · referencia` : `${hiCat.label} · factor ×${heatFactor(w.env.hi)} (sin WBGT)`} />
         <KpiCard icon={Thermometer} label="Temp. del aire" value={w.env.t.toFixed(1)} unit="°C" tone="heat" hint={w.env.ok ? 'sensor del clip' : 'sensor sin respuesta · último valor'} />
         <KpiCard icon={Droplets} label="Humedad relativa" value={Math.round(w.env.rh)} unit="%" tone="blue" hint={w.env.ok ? 'sensor del clip' : 'sensor sin respuesta · último valor'} />
         <KpiCard icon={Activity} label="Índice de movimiento" value={Math.round(w.activity * 100)} unit="/100" tone="green" hint={`${movLevel(w.activity * 100).toLowerCase()} · acelerómetro · sin validar`} />
@@ -83,10 +89,10 @@ export default function WorkerDetail() {
             refLines={[{ value: thresholds.tiredPct, color: STATUS.cansancio.hex, label: 'Cansancio' }, { value: 100, color: STATUS.descanso.hex, label: 'Toca descanso' }]} />
         </div>
         <div className="card p-4">
-          <h2 className="section-heading mb-2">Temperatura del aire y sensación térmica (Heat Index) <HeatIndexBadge hi={w.env.hi} /></h2>
+          <h2 className="section-heading mb-2">Temperatura, sensación térmica y WBGT estimado {hasWbgt(w) ? <WbgtBadge wbgt={w.wbgt} /> : <HeatIndexBadge hi={w.env.hi} />}</h2>
           <LineChart data={w.history} yDomain={[15, 55]}
-            lines={[{ key: 'temp', label: 'Temp. del aire', color: '#f97316', unit: ' °C' }, { key: 'hi', label: 'Sensación térmica (Heat Index)', color: '#7c3aed', unit: ' °C' }]}
-            refLines={HI_REF_LINES} />
+            lines={[{ key: 'temp', label: 'Temp. del aire', color: '#f97316', unit: ' °C' }, { key: 'hi', label: 'Sensación térmica (Heat Index)', color: '#7c3aed', unit: ' °C' }, { key: 'wbgt', label: 'WBGT estimado', color: '#dc2626', unit: ' °C', dashed: true }]}
+            refLines={hasWbgt(w) ? WBGT_REF_LINES : HI_REF_LINES} />
         </div>
       </div>
 

@@ -30,13 +30,14 @@ export const COMMAND = {
   setTiredPct: 8,        // umbral de cansancio en % de exposición acumulada (argumento: 30–95)
   setAutoPause: 9,       // 1 = el clip pide la pausa solo al llegar al 100 %; 0 = no
   setPersonalFactor: 10, // factor personal del trabajador asignado × 100 (argumento: 50–200; 110 = ×1,1)
+  setWbgtLevel: 11,      // nivel de WBGT estimado + 1 (1–5); 0 = el clip vuelve a su Heat Index
 };
 export const encodeCommand = (cmd, arg = 0) => new Uint8Array([cmd & 0xff, arg & 0xff]);
 
 // Estados del clip (byte 15)
 export const STATE = { normal: 0, cansancio: 1, descanso: 2, pausa: 3, finPausa: 4 };
 
-const FLAG = { envOk: 1, motionOk: 2, buttonPressed: 4, requestBySupervisor: 8 };
+const FLAG = { envOk: 1, motionOk: 2, buttonPressed: 4, requestBySupervisor: 8, heatFromWbgt: 16 };
 const NO_VALUE = -32768; // int16 que marca "sin lectura"
 
 // Paquete binario → mensaje lógico. Lanza un error si el paquete no es de esta versión.
@@ -70,6 +71,7 @@ export function decodeTelemetry(view, { deviceId = 'HG-CLIP', receivedAt = Date.
     rssi: view.getInt8(17) || null,  // intensidad de la señal del enlace medida por el clip (dBm); null = sin dato
     button: { pressed: !!(flags & FLAG.buttonPressed) },
     requestBySupervisor: !!(flags & FLAG.requestBySupervisor),
+    heatFromWbgt: !!(flags & FLAG.heatFromWbgt),   // el clip usa el nivel WBGT del servidor como factor de calor
   };
 }
 
@@ -82,6 +84,7 @@ export function encodeTelemetry(m) {
   if (m.motion?.ok) flags |= FLAG.motionOk;
   if (m.button?.pressed) flags |= FLAG.buttonPressed;
   if (m.requestBySupervisor) flags |= FLAG.requestBySupervisor;
+  if (m.heatFromWbgt) flags |= FLAG.heatFromWbgt;
   v.setUint8(0, TELEMETRY_VERSION);
   v.setUint8(1, flags);
   v.setUint16(2, (m.seq ?? 0) & 0xffff, true);

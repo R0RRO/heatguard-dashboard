@@ -43,6 +43,16 @@ Usuarios: se gestionan en la página «Usuarios» del panel (administrador), o e
 
 **Desarrollo local:** en una terminal `HG_SUPERVISOR_PASS=... HG_TRABAJADOR_PASS=... node server/index.js`; en otra `npm run dev` (Vite reenvía `/api` al puerto 8787). Sin servidor, el botón «Modo demo sin servidor» abre el panel como antes (un clip por Bluetooth en ese navegador).
 
+## WBGT estimado (motor Python)
+
+`motor_termico_python/` es el motor de análisis térmico de Jonathan Hinojosa. El servidor lo usa como servicio
+local (`integracion/servicio_wbgt.py`): con la temperatura y humedad de cada trabajador, más radiación solar y
+viento del pronóstico Open-Meteo para la obra, estima el **WBGT** con el modelo de Ono. Ese WBGT define el factor
+de calor de la exposición acumulada (niveles <21, 21–25, 25–28, 28–31 y ≥31 °C → ×1 a ×4) para toda la cuadrilla;
+el clip real lo recibe con el comando 11. Sin el servicio o sin meteorología, se vuelve a la sensación térmica
+(Heat Index). Es una estimación de modelo, no WBGT medido ni ISO 7243. Detalle en
+`motor_termico_python/integracion/CONTRATO_Y_PENDIENTES.md`.
+
 ## Alcance y límites
 
 - El clip mide el **ambiente** (temperatura del aire y humedad relativa) y el movimiento del propio clip.
